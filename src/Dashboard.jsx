@@ -9,11 +9,11 @@ const PROFILE = {
   benchmarks: { DL: 385, SQ: 275, BP: 185, OHP: 125, FTP: 290, HM: "1:39:30" },
   stations: { ski: 232, sledPush: 85, sledPull: 166, bbj: 161, row: 262, carry: 81, lunges: 147, wallBalls: 207 },
   // Strength profile: Pull = elite tier (chin +65, pull +55). Push = primary weakness (BP 185, OHP 125).
-  // Race calendar: Hyrox Singles Open Toronto ~Oct 2026 (A race), Toronto Waterfront Marathon Oct 18 2026 (B race)
+  // Race calendar: Hyrox Singles Open Toronto Oct 4 2026 (A race), Toronto Waterfront Marathon Oct 18 2026 (B race)
   // Current phase: BASE — aerobic foundation. Singles station targets pending benchmark research.
   races: [
     { name: "Toronto Waterfront Marathon", date: "2026-10-18", priority: "B", type: "marathon" },
-    { name: "Hyrox Singles Open Toronto", date: "2026-10-01", priority: "A", type: "hyrox" }, // approx — update when confirmed
+    { name: "Hyrox Singles Open Toronto", date: "2026-10-04", priority: "A", type: "hyrox" },
   ]
 };
 
@@ -50,7 +50,8 @@ const fmt = {
   daysSince: (iso) => Math.floor((Date.now() - new Date(iso)) / 86400000),
 };
 
-const HYROX_DATE_KEY = "arty:race_date";
+const HYROX_RACE_DATE = "2026-10-04";
+const MARATHON_RACE_DATE = "2026-10-18";
 const WORKOUTS_KEY = "arty:workouts";
 const HRV_KEY = "arty:hrv";
 const MESO_KEY = "arty:mesocycle";
@@ -73,12 +74,10 @@ export default function ArtyAthletics() {
   const [tab, setTab] = useState("HOME");
   const [workouts, setWorkouts] = useState([]);
   const [hrvLog, setHrvLog] = useState([]);
-  const [raceDate, setRaceDate] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [aiResult, setAiResult] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [toast, setToast] = useState(null);
-  const [editingDate, setEditingDate] = useState(false);
   const [mesocycle, setMesocycle] = useState(DEFAULT_MESO);
 
   // Log form state
@@ -123,10 +122,6 @@ export default function ArtyAthletics() {
     try {
       const h = await window.storage.get(HRV_KEY);
       if (h) setHrvLog(JSON.parse(h.value));
-    } catch {}
-    try {
-      const r = await window.storage.get(HYROX_DATE_KEY);
-      if (r) setRaceDate(r.value);
     } catch {}
     try {
       const m = await window.storage.get(MESO_KEY);
@@ -223,7 +218,8 @@ Be direct, data-first, no fluff. Use physiological principles. Max 400 words.`;
   }
 
   // ─── COMPUTED DATA ─────────────────────────────────────────────────────────
-  const daysToRace = raceDate ? Math.max(0, Math.ceil((new Date(raceDate) - Date.now()) / 86400000)) : null;
+  const daysToHyrox = Math.max(0, Math.ceil((new Date(HYROX_RACE_DATE) - Date.now()) / 86400000));
+  const daysToMarathon = Math.max(0, Math.ceil((new Date(MARATHON_RACE_DATE) - Date.now()) / 86400000));
   const lastHrv = hrvLog[0]?.value;
   const avgHrv7 = hrvLog.slice(0, 7).length ? (hrvLog.slice(0, 7).reduce((a, b) => a + b.value, 0) / hrvLog.slice(0, 7).length) : null;
   const hrvStatus = !lastHrv || !avgHrv7 ? "none" : lastHrv >= avgHrv7 * 0.95 ? "green" : lastHrv >= avgHrv7 * 0.90 ? "yellow" : "red";
@@ -290,45 +286,26 @@ Be direct, data-first, no fluff. Use physiological principles. Max 400 words.`;
           <T size={26} weight="800" color={C.accent} style={{ display: "block", fontFamily: "'Syne'" }}>ARTY'S<br />ATHLETICS</T>
         </div>
 
-        {/* Race countdown — tap to edit */}
-        <div style={{ textAlign: "right" }}>
-          {editingDate ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-              <input
-                type="date"
-                autoFocus
-                value={raceDate}
-                onChange={e => { setRaceDate(e.target.value); window.storage.set(HYROX_DATE_KEY, e.target.value); }}
-                style={{ fontSize: 15, padding: "8px 10px", width: 160, background: C.surface, border: `1px solid ${C.accent}`, color: C.text, borderRadius: 8, outline: "none" }}
-              />
-              <button onClick={() => setEditingDate(false)} style={{ background: C.accent, border: "none", color: "#000", borderRadius: 6, padding: "6px 14px", fontFamily: "'Syne'", fontWeight: 700, fontSize: 12, cursor: "pointer", letterSpacing: 1 }}>DONE</button>
+        {/* Race countdowns */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ textAlign: "center", background: C.accent + "15", border: `1px solid ${C.accent}30`, borderRadius: 10, padding: "8px 12px" }}>
+              <T size={36} weight="800" color={C.accent} mono style={{ display: "block", lineHeight: 1 }}>{daysToHyrox}</T>
+              <T size={9} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1, display: "block" }}>DAYS TO HYROX</T>
             </div>
-          ) : (
-            <button onClick={() => setEditingDate(true)} style={{ background: "none", border: "none", cursor: "pointer", textAlign: "right", padding: 0 }}>
-              {daysToRace !== null ? (
-                <>
-                  <T size={52} weight="800" color={C.accent} mono style={{ display: "block", lineHeight: 1 }}>{daysToRace}</T>
-                  <T size={10} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1.5, display: "block" }}>DAYS TO HYROX ✎</T>                </>
-              ) : (
-                <div style={{ background: C.accent + "15", border: `1px dashed ${C.accent}50`, borderRadius: 8, padding: "10px 14px" }}>
-                  <T size={12} color={C.accent} weight="700">SET RACE DATE ✎</T>
-                </div>
-              )}
-            </button>
-          )}
+            <div style={{ textAlign: "center", background: C.teal + "15", border: `1px solid ${C.teal}30`, borderRadius: 10, padding: "8px 12px" }}>
+              <T size={36} weight="800" color={C.teal} mono style={{ display: "block", lineHeight: 1 }}>{daysToMarathon}</T>
+              <T size={9} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1, display: "block" }}>DAYS TO MARATHON</T>
+            </div>
+          </div>
 
-          {/* Mesocycle label under countdown */}
-          {!editingDate && mesocycle.phase !== "TBD" && (
-            <div style={{ marginTop: 6, textAlign: "right" }}>
+          {mesocycle.phase !== "TBD" && (
+            <div style={{ textAlign: "right" }}>
               <T size={10} color={C.purple} weight="700" mono style={{ textTransform: "uppercase", letterSpacing: 1 }}>{mesocycle.phase}</T>
               {mesocycle.week && mesocycle.totalWeeks && (
                 <T size={10} color={C.muted} mono style={{ display: "block" }}>Wk {mesocycle.week}/{mesocycle.totalWeeks}</T>
               )}
             </div>
-          )}
-          {!editingDate && mesocycle.phase === "TBD" && !raceDate && null}
-          {!editingDate && mesocycle.phase === "TBD" && raceDate && (
-            <T size={10} color={C.muted} style={{ display: "block", marginTop: 4, textTransform: "uppercase", letterSpacing: 1 }}>No meso set</T>
           )}
         </div>
       </div>
