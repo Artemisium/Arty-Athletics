@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
 
 const PROFILE = {
   name: "Artem",
@@ -42,6 +42,19 @@ const C = {
   muted: "#55555f",
   light: "#88889a",
 };
+
+// Scores vs elite Hyrox Open field (100 = top athlete benchmark)
+// Run: HM 1:39:30 vs elite ~1:15 · Aerobic: 3.63 W/kg vs elite ~4.5
+// Push: BP 1.05×BW vs elite ~1.5× · Pull: chin +65 lbs — elite tier
+// Lower: DL 2.19×BW, SQ 1.56×BW vs elite 2.8×/2.2× · Stations: doubles PB extrapolated to singles
+const RADAR_DATA = [
+  { metric: "RUN",      score: 58 },
+  { metric: "AEROBIC",  score: 65 },
+  { metric: "PUSH",     score: 55 },
+  { metric: "PULL",     score: 85 },
+  { metric: "LOWER",    score: 62 },
+  { metric: "STATIONS", score: 68 },
+];
 
 const fmt = {
   sec: (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`,
@@ -451,6 +464,63 @@ Be direct, data-first, no fluff. Use physiological principles. Max 400 words.`;
               <T size={12} color={C.accent} mono weight="600">{v}</T>
             </div>
           ))}
+        </div>
+      </Card>
+
+      {/* Elite comparison radar */}
+      <Card>
+        <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 2 }}>vs Elite Hyrox Open Field</T>
+        <T size={10} color={C.muted} style={{ display: "block", marginBottom: 4 }}>100% = top athlete benchmark</T>
+
+        <ResponsiveContainer width="100%" height={230}>
+          <RadarChart data={RADAR_DATA} margin={{ top: 10, right: 24, bottom: 10, left: 24 }}>
+            <PolarGrid stroke={C.border} />
+            <PolarAngleAxis
+              dataKey="metric"
+              tick={({ x, y, payload, cx, cy }) => {
+                const score = RADAR_DATA.find(d => d.metric === payload.value)?.score ?? 0;
+                const color = score >= 80 ? C.teal : score >= 65 ? C.accent : C.danger;
+                const dx = x - cx; const dy = y - cy;
+                const len = Math.sqrt(dx*dx + dy*dy) || 1;
+                const ox = (dx/len) * 8; const oy = (dy/len) * 8;
+                return (
+                  <g>
+                    <text x={x + ox} y={y + oy} textAnchor="middle" dominantBaseline="central"
+                      style={{ fontFamily: "'Syne'", fontSize: 9, fontWeight: 700, fill: color, letterSpacing: 1 }}>
+                      {payload.value}
+                    </text>
+                    <text x={x + ox} y={y + oy + 12} textAnchor="middle" dominantBaseline="central"
+                      style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600, fill: color }}>
+                      {score}%
+                    </text>
+                  </g>
+                );
+              }}
+            />
+            <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+            {/* Elite ceiling */}
+            <Radar dataKey={() => 100} stroke={C.border} fill={C.border} fillOpacity={0.08} strokeDasharray="4 3" strokeWidth={1} dot={false} />
+            {/* Artem */}
+            <Radar dataKey="score" stroke={C.accent} fill={C.accent} fillOpacity={0.18} strokeWidth={2}
+              dot={{ r: 3, fill: C.accent, strokeWidth: 0 }} activeDot={{ r: 5, fill: C.accent }} />
+            <Tooltip
+              contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.text }}
+              formatter={(v) => [`${v}%`, "Score"]}
+            />
+          </RadarChart>
+        </ResponsiveContainer>
+
+        {/* Gap callouts */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginTop: 4 }}>
+          {RADAR_DATA.map(d => {
+            const color = d.score >= 80 ? C.teal : d.score >= 65 ? C.accent : C.danger;
+            return (
+              <div key={d.metric} style={{ background: color + "12", border: `1px solid ${color}30`, borderRadius: 8, padding: "6px 8px", textAlign: "center" }}>
+                <T size={15} weight="800" color={color} mono style={{ display: "block", lineHeight: 1 }}>{d.score}%</T>
+                <T size={9} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginTop: 3 }}>{d.metric}</T>
+              </div>
+            );
+          })}
         </div>
       </Card>
     </div>
