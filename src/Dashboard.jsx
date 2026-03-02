@@ -44,16 +44,19 @@ const C = {
 };
 
 // Scores vs elite Hyrox Open field (100 = top athlete benchmark)
-// Run: HM 1:39:30 vs elite ~1:15 · Aerobic: 3.63 W/kg vs elite ~4.5
+// Run: HM 1:39:30 vs elite ~1:15 · FTP: 3.63 W/kg vs elite ~4.5
+// VO2 Max: 51 ml/kg/min vs elite ~65 (floor 35) · Vert: 22" vs elite ~30" (floor 14")
 // Push: BP 1.05×BW vs elite ~1.5× · Pull: chin +65 lbs — elite tier
 // Lower: DL 2.19×BW, SQ 1.56×BW vs elite 2.8×/2.2× · Stations: doubles PB extrapolated to singles
 const RADAR_DATA = [
   { metric: "RUN",      score: 58 },
-  { metric: "AEROBIC",  score: 65 },
+  { metric: "FTP",      score: 65 },
+  { metric: "VO2 MAX",  score: 53 },
   { metric: "PUSH",     score: 55 },
   { metric: "PULL",     score: 85 },
   { metric: "LOWER",    score: 62 },
   { metric: "STATIONS", score: 68 },
+  { metric: "VERT",     score: 50 },
 ];
 
 const fmt = {
@@ -511,13 +514,13 @@ Be direct, data-first, no fluff. Use physiological principles. Max 400 words.`;
         </ResponsiveContainer>
 
         {/* Gap callouts */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginTop: 4 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, marginTop: 4 }}>
           {RADAR_DATA.map(d => {
             const color = d.score >= 80 ? C.teal : d.score >= 65 ? C.accent : C.danger;
             return (
-              <div key={d.metric} style={{ background: color + "12", border: `1px solid ${color}30`, borderRadius: 8, padding: "6px 8px", textAlign: "center" }}>
-                <T size={15} weight="800" color={color} mono style={{ display: "block", lineHeight: 1 }}>{d.score}%</T>
-                <T size={9} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginTop: 3 }}>{d.metric}</T>
+              <div key={d.metric} style={{ background: color + "12", border: `1px solid ${color}30`, borderRadius: 8, padding: "6px 4px", textAlign: "center" }}>
+                <T size={13} weight="800" color={color} mono style={{ display: "block", lineHeight: 1 }}>{d.score}%</T>
+                <T size={8} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 0.3, display: "block", marginTop: 3 }}>{d.metric}</T>
               </div>
             );
           })}
