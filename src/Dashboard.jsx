@@ -1,0 +1,730 @@
+import { useState, useEffect, useRef } from "react";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+
+const PROFILE = {
+  name: "Artem",
+  weight: 176,
+  hyroxPB: "1:04:14 (Doubles)",
+  runSplits: [232, 272, 292, 296, 295, 287, 294, 240],
+  benchmarks: { DL: 385, SQ: 275, BP: 185, OHP: 125, FTP: 290, HM: "1:39:30" },
+  stations: { ski: 232, sledPush: 85, sledPull: 166, bbj: 161, row: 262, carry: 81, lunges: 147, wallBalls: 207 },
+  // Strength profile: Pull = elite tier (chin +65, pull +55). Push = primary weakness (BP 185, OHP 125).
+  // Race calendar: Hyrox Singles Open Toronto ~Oct 2026 (A race), Toronto Waterfront Marathon Oct 18 2026 (B race)
+  // Current phase: BASE — aerobic foundation. Singles station targets pending benchmark research.
+  races: [
+    { name: "Toronto Waterfront Marathon", date: "2026-10-18", priority: "B", type: "marathon" },
+    { name: "Hyrox Singles Open Toronto", date: "2026-10-01", priority: "A", type: "hyrox" }, // approx — update when confirmed
+  ]
+};
+
+const SESSION_TYPES = [
+  { id: "hyrox_sim", label: "HYROX SIM", icon: "🏟", color: "#f0a500" },
+  { id: "strength", label: "STRENGTH", icon: "🏋", color: "#7c6af7" },
+  { id: "run", label: "RUN", icon: "🏃", color: "#00d4aa" },
+  { id: "bike", label: "BIKE", icon: "🚴", color: "#00aaff" },
+  { id: "ski", label: "SKI", icon: "⛷", color: "#a0d4ff" },
+  { id: "climb", label: "CLIMB", icon: "🧗", color: "#ff7043" },
+  { id: "swim", label: "SWIM", icon: "🏊", color: "#29b6f6" },
+  { id: "recovery", label: "RECOVERY", icon: "💤", color: "#4caf50" },
+];
+
+const C = {
+  bg: "#0a0a0d",
+  surface: "#13131a",
+  card: "#18181f",
+  border: "#22222e",
+  accent: "#f0a500",
+  teal: "#00d4aa",
+  purple: "#7c6af7",
+  danger: "#ff4d4d",
+  warn: "#ffaa00",
+  text: "#e2e2e8",
+  muted: "#55555f",
+  light: "#88889a",
+};
+
+const fmt = {
+  sec: (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`,
+  pace: (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}/km`,
+  date: (iso) => new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric" }),
+  daysSince: (iso) => Math.floor((Date.now() - new Date(iso)) / 86400000),
+};
+
+const HYROX_DATE_KEY = "arty:race_date";
+const WORKOUTS_KEY = "arty:workouts";
+const HRV_KEY = "arty:hrv";
+const MESO_KEY = "arty:mesocycle";
+
+const DEFAULT_MESO = {
+  name: "Base Mesocycle — Aerobic Rebuild",
+  phase: "BASE PHASE",
+  week: 1,
+  totalWeeks: 20,
+  focus: "PRIORITY: Rebuild running base from zero. No running in 8+ weeks, last real run Sep 14 2025. Zone 2 pace estimated 6:30-7:00/km at HR 150-155 (was 6:00-6:15 pre-race). Saturday Altea spin must shift to Zone 2 or be replaced with easy run — currently always TE 4-5. Marathon long runs (Oct 18) double as Hyrox aerobic base work.",
+  keyMetrics: ["Run 3x/wk minimum", "Zone 2 HR <155", "Long run weekly", "Altea: cap TE ≤2.5"],
+  sessions: [
+    "Mon/Wed: Easy run 5–8km @ HR <155, no exceptions — walk if needed",
+    "Sat: REPLACE Altea spin with 60-75min Zone 2 run OR cap spin TE at 2.5",
+    "Thu: Strength push focus (BP/OHP) + optional short Hyrox circuit finish",
+  ],
+};
+
+export default function ArtyAthletics() {
+  const [tab, setTab] = useState("HOME");
+  const [workouts, setWorkouts] = useState([]);
+  const [hrvLog, setHrvLog] = useState([]);
+  const [raceDate, setRaceDate] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [aiResult, setAiResult] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [editingDate, setEditingDate] = useState(false);
+  const [mesocycle, setMesocycle] = useState(DEFAULT_MESO);
+
+  // Log form state
+  const [logForm, setLogForm] = useState({
+    type: "", duration: "", hrAvg: "", hrMax: "", rpe: 7, hrv: "",
+    notes: "", runPace: "", runSplits: "", location: "",
+  });
+  const [logStep, setLogStep] = useState(0); // 0=type, 1=data, 2=notes
+
+  useEffect(() => {
+    const link = document.createElement("link");
+    link.href = "https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap";
+    link.rel = "stylesheet";
+    document.head.appendChild(link);
+
+    const style = document.createElement("style");
+    style.textContent = `
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      body { background: ${C.bg}; margin: 0; }
+      input[type=range] { -webkit-appearance: none; width: 100%; height: 4px; background: ${C.border}; border-radius: 2px; outline: none; }
+      input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; background: ${C.accent}; border-radius: 50%; cursor: pointer; }
+      input[type=number], input[type=text], textarea, select { background: ${C.surface}; border: 1px solid ${C.border}; color: ${C.text}; border-radius: 8px; padding: 12px; font-size: 16px; width: 100%; outline: none; font-family: inherit; }
+      input[type=number]:focus, input[type=text]:focus, textarea:focus { border-color: ${C.accent}; }
+      ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 2px; }
+      .pulse { animation: pulse 2s infinite; }
+      @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+      @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+      .slide-up { animation: slideUp 0.3s ease forwards; }
+      @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+      .fade-in { animation: fadeIn 0.4s ease; }
+    `;
+    document.head.appendChild(style);
+
+    loadData();
+  }, []);
+
+  async function loadData() {
+    try {
+      const w = await window.storage.get(WORKOUTS_KEY);
+      if (w) setWorkouts(JSON.parse(w.value));
+    } catch {}
+    try {
+      const h = await window.storage.get(HRV_KEY);
+      if (h) setHrvLog(JSON.parse(h.value));
+    } catch {}
+    try {
+      const r = await window.storage.get(HYROX_DATE_KEY);
+      if (r) setRaceDate(r.value);
+    } catch {}
+    try {
+      const m = await window.storage.get(MESO_KEY);
+      if (m) setMesocycle(JSON.parse(m.value));
+    } catch {}
+    setLoaded(true);
+  }
+
+  async function saveWorkouts(arr) {
+    await window.storage.set(WORKOUTS_KEY, JSON.stringify(arr));
+    setWorkouts(arr);
+  }
+  async function saveHrv(arr) {
+    await window.storage.set(HRV_KEY, JSON.stringify(arr));
+    setHrvLog(arr);
+  }
+
+  function showToast(msg, color = C.teal) {
+    setToast({ msg, color });
+    setTimeout(() => setToast(null), 2500);
+  }
+
+  async function submitLog() {
+    if (!logForm.type) return;
+    const entry = {
+      id: Date.now(),
+      date: new Date().toISOString(),
+      ...logForm,
+      rpe: Number(logForm.rpe),
+    };
+    const updated = [entry, ...workouts];
+    await saveWorkouts(updated);
+
+    if (logForm.hrv) {
+      const hrvEntry = { date: new Date().toISOString(), value: Number(logForm.hrv) };
+      const updatedHrv = [hrvEntry, ...hrvLog].slice(0, 60);
+      await saveHrv(updatedHrv);
+    }
+
+    setLogForm({ type: "", duration: "", hrAvg: "", hrMax: "", rpe: 7, hrv: "", notes: "", runPace: "", runSplits: "", location: "" });
+    setLogStep(0);
+    showToast("SESSION LOGGED ✓");
+    setTab("HOME");
+  }
+
+  async function runAiAnalysis() {
+    setAiLoading(true);
+    setAiResult("");
+    const recent = workouts.slice(0, 14);
+    const hrvRecent = hrvLog.slice(0, 7);
+    const avgHrv = hrvRecent.length ? (hrvRecent.reduce((a, b) => a + b.value, 0) / hrvRecent.length).toFixed(1) : "N/A";
+    const sessionSummary = recent.map(w =>
+      `${fmt.date(w.date)} | ${w.type} | ${w.duration}min | HR ${w.hrAvg}/${w.hrMax} | RPE ${w.rpe}${w.notes ? " | " + w.notes : ""}`
+    ).join("\n");
+
+    const prompt = `You are an elite performance director for Artem Kobelev, a hybrid athlete training for Hyrox 2025.
+
+ATHLETE BENCHMARKS:
+- Hyrox PB: 1:04:14 (Men's Open Doubles)
+- Run splits: 3:52 / 4:32 / 4:52 / 4:56 / 4:55 / 4:47 / 4:54 / 4:00
+- Station benchmarks: Ski 3:52 | Sled Push 1:25 | Sled Pull 2:46 | BBJ 2:41 | Row 4:22 | Carry 1:21 | Lunges 2:27 | WB 3:27
+- FTP: 290W | HM: 1:39:30 | DL: 385 | SQ: 275 | BP: 185
+- 7-day avg HRV (rMSSD): ${avgHrv}ms
+
+RECENT TRAINING LOG (last 14 sessions):
+${sessionSummary || "No sessions logged yet."}
+
+TASK:
+1. Identify top 3 limiters based on this training data
+2. Flag any interference effect or overtraining risk
+3. Assess recovery status based on HRV trend
+4. Prescribe the 3 most important sessions for next week with specific paces/loads
+5. One sentence on the biggest gap vs elite Hyrox Open benchmarks
+
+Be direct, data-first, no fluff. Use physiological principles. Max 400 words.`;
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+      const data = await res.json();
+      const text = data.content?.map(b => b.text || "").join("\n") || "Analysis unavailable.";
+      setAiResult(text);
+    } catch (e) {
+      setAiResult("Error running analysis. Check connection.");
+    }
+    setAiLoading(false);
+  }
+
+  // ─── COMPUTED DATA ─────────────────────────────────────────────────────────
+  const daysToRace = raceDate ? Math.max(0, Math.ceil((new Date(raceDate) - Date.now()) / 86400000)) : null;
+  const lastHrv = hrvLog[0]?.value;
+  const avgHrv7 = hrvLog.slice(0, 7).length ? (hrvLog.slice(0, 7).reduce((a, b) => a + b.value, 0) / hrvLog.slice(0, 7).length) : null;
+  const hrvStatus = !lastHrv || !avgHrv7 ? "none" : lastHrv >= avgHrv7 * 0.95 ? "green" : lastHrv >= avgHrv7 * 0.90 ? "yellow" : "red";
+  const hrvColor = { green: C.teal, yellow: C.warn, red: C.danger, none: C.muted };
+
+  const weekVolume = workouts.filter(w => fmt.daysSince(w.date) <= 7).length;
+  const typeIcon = (t) => SESSION_TYPES.find(s => s.id === t)?.icon || "📋";
+  const typeColor = (t) => SESSION_TYPES.find(s => s.id === t)?.color || C.muted;
+
+  const hrvChartData = [...hrvLog].reverse().slice(-14).map(h => ({
+    date: fmt.date(h.date), v: h.value, avg: avgHrv7 ? Math.round(avgHrv7) : null
+  }));
+
+  const weeklyVolumeData = (() => {
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - (6 - i));
+      return d.toLocaleDateString("en-CA");
+    });
+    return days.map(day => ({
+      day: day.slice(5),
+      sessions: workouts.filter(w => w.date.startsWith(day)).length,
+    }));
+  })();
+
+  // ─── COMPONENTS ────────────────────────────────────────────────────────────
+  const T = ({ children, size = 14, weight = "400", color = C.text, mono = false, style = {} }) => (
+    <span style={{ fontSize: size, fontWeight: weight, color, fontFamily: mono ? "'JetBrains Mono', monospace" : "'Syne', sans-serif", lineHeight: 1.4, ...style }}>{children}</span>
+  );
+
+  const Card = ({ children, style = {}, accent = false }) => (
+    <div className="slide-up" style={{ background: C.card, border: `1px solid ${accent ? C.accent + "44" : C.border}`, borderRadius: 12, padding: "16px", marginBottom: 12, ...style }}>
+      {children}
+    </div>
+  );
+
+  const Pill = ({ label, value, color = C.accent }) => (
+    <div style={{ background: color + "15", border: `1px solid ${color}30`, borderRadius: 8, padding: "8px 12px", flex: 1, minWidth: 0 }}>
+      <div style={{ color: C.muted, fontSize: 10, fontFamily: "'Syne'", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{label}</div>
+      <div style={{ color, fontSize: 18, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{value}</div>
+    </div>
+  );
+
+  const Btn = ({ children, onPress, color = C.accent, full = false, small = false, outline = false }) => (
+    <button onClick={onPress} style={{
+      background: outline ? "transparent" : color,
+      border: outline ? `1px solid ${color}` : "none",
+      color: outline ? color : "#000",
+      borderRadius: 10, padding: small ? "10px 16px" : "14px 20px",
+      fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: small ? 13 : 15,
+      width: full ? "100%" : "auto", cursor: "pointer", letterSpacing: 0.5,
+      textTransform: "uppercase",
+    }}>{children}</button>
+  );
+
+  // ─── TABS ──────────────────────────────────────────────────────────────────
+
+  // HOME TAB
+  const HomeTab = () => (
+    <div className="fade-in" style={{ padding: "16px 16px 0" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+        <div>
+          <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block" }}>Performance OS</T>
+          <T size={26} weight="800" color={C.accent} style={{ display: "block", fontFamily: "'Syne'" }}>ARTY'S<br />ATHLETICS</T>
+        </div>
+
+        {/* Race countdown — tap to edit */}
+        <div style={{ textAlign: "right" }}>
+          {editingDate ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+              <input
+                type="date"
+                autoFocus
+                value={raceDate}
+                onChange={e => { setRaceDate(e.target.value); window.storage.set(HYROX_DATE_KEY, e.target.value); }}
+                style={{ fontSize: 15, padding: "8px 10px", width: 160, background: C.surface, border: `1px solid ${C.accent}`, color: C.text, borderRadius: 8, outline: "none" }}
+              />
+              <button onClick={() => setEditingDate(false)} style={{ background: C.accent, border: "none", color: "#000", borderRadius: 6, padding: "6px 14px", fontFamily: "'Syne'", fontWeight: 700, fontSize: 12, cursor: "pointer", letterSpacing: 1 }}>DONE</button>
+            </div>
+          ) : (
+            <button onClick={() => setEditingDate(true)} style={{ background: "none", border: "none", cursor: "pointer", textAlign: "right", padding: 0 }}>
+              {daysToRace !== null ? (
+                <>
+                  <T size={52} weight="800" color={C.accent} mono style={{ display: "block", lineHeight: 1 }}>{daysToRace}</T>
+                  <T size={10} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1.5, display: "block" }}>DAYS TO HYROX ✎</T>                </>
+              ) : (
+                <div style={{ background: C.accent + "15", border: `1px dashed ${C.accent}50`, borderRadius: 8, padding: "10px 14px" }}>
+                  <T size={12} color={C.accent} weight="700">SET RACE DATE ✎</T>
+                </div>
+              )}
+            </button>
+          )}
+
+          {/* Mesocycle label under countdown */}
+          {!editingDate && mesocycle.phase !== "TBD" && (
+            <div style={{ marginTop: 6, textAlign: "right" }}>
+              <T size={10} color={C.purple} weight="700" mono style={{ textTransform: "uppercase", letterSpacing: 1 }}>{mesocycle.phase}</T>
+              {mesocycle.week && mesocycle.totalWeeks && (
+                <T size={10} color={C.muted} mono style={{ display: "block" }}>Wk {mesocycle.week}/{mesocycle.totalWeeks}</T>
+              )}
+            </div>
+          )}
+          {!editingDate && mesocycle.phase === "TBD" && !raceDate && null}
+          {!editingDate && mesocycle.phase === "TBD" && raceDate && (
+            <T size={10} color={C.muted} style={{ display: "block", marginTop: 4, textTransform: "uppercase", letterSpacing: 1 }}>No meso set</T>
+          )}
+        </div>
+      </div>
+
+      {/* Mesocycle Focus Card */}
+      <div style={{ background: `linear-gradient(135deg, ${C.purple}18, ${C.card})`, border: `1px solid ${C.purple}40`, borderRadius: 12, padding: "14px 16px", marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <T size={11} color={C.purple} weight="700" style={{ textTransform: "uppercase", letterSpacing: 2 }}>Current Mesocycle</T>
+          {mesocycle.week && mesocycle.totalWeeks && (
+            <div style={{ display: "flex", gap: 3 }}>
+              {Array.from({ length: mesocycle.totalWeeks }, (_, i) => (
+                <div key={i} style={{ width: 8, height: 8, borderRadius: 2, background: i < mesocycle.week ? C.purple : C.border }} />
+              ))}
+            </div>
+          )}
+        </div>
+        <T size={17} weight="800" color={C.text} style={{ display: "block", marginBottom: 6 }}>{mesocycle.name}</T>
+        <T size={13} color={C.light} style={{ display: "block", lineHeight: 1.6 }}>{mesocycle.focus}</T>
+        {mesocycle.keyMetrics.length > 0 && (
+          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+            {mesocycle.keyMetrics.map((m, i) => (
+              <span key={i} style={{ background: C.purple + "20", border: `1px solid ${C.purple}40`, borderRadius: 6, padding: "4px 10px", color: C.purple, fontSize: 11, fontFamily: "'Syne'", fontWeight: 700 }}>{m}</span>
+            ))}
+          </div>
+        )}
+        {mesocycle.sessions.length > 0 && (
+          <div style={{ marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+            <T size={10} color={C.muted} style={{ textTransform: "uppercase", letterSpacing: 1.5, display: "block", marginBottom: 6 }}>This Week's Priority Sessions</T>
+            {mesocycle.sessions.map((s, i) => (
+              <T key={i} size={12} color={C.light} style={{ display: "block", paddingLeft: 8, borderLeft: `2px solid ${C.purple}`, marginBottom: 4 }}>{s}</T>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Status row */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+        <Pill label="HRV Status" value={!lastHrv ? "—" : `${lastHrv}ms`} color={hrvColor[hrvStatus]} />
+        <Pill label="This Week" value={`${weekVolume} sessions`} color={C.teal} />
+        <Pill label="FTP" value={`${PROFILE.benchmarks.FTP}W`} color={C.purple} />
+      </div>
+
+      {/* HRV chart */}
+      {hrvChartData.length > 1 && (
+        <Card>
+          <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 12 }}>HRV — 14 Day Trend</T>
+          <ResponsiveContainer width="100%" height={90}>
+            <LineChart data={hrvChartData} margin={{ top: 4, right: 4, left: -30, bottom: 0 }}>
+              <XAxis dataKey="day" tick={{ fontSize: 9, fill: C.muted }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 9, fill: C.muted }} axisLine={false} tickLine={false} />
+              {avgHrv7 && <ReferenceLine y={Math.round(avgHrv7)} stroke={C.muted} strokeDasharray="3 3" />}
+              <Line type="monotone" dataKey="v" stroke={hrvColor[hrvStatus]} strokeWidth={2} dot={false} />
+              <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.text }} labelStyle={{ color: C.muted }} formatter={(v) => [`${v}ms`, "HRV"]} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+      )}
+
+      {/* Weekly volume */}
+      <Card>
+        <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 12 }}>Sessions — This Week</T>
+        <ResponsiveContainer width="100%" height={80}>
+          <BarChart data={weeklyVolumeData} margin={{ top: 0, right: 4, left: -30, bottom: 0 }}>
+            <XAxis dataKey="day" tick={{ fontSize: 10, fill: C.muted }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 9, fill: C.muted }} axisLine={false} tickLine={false} />
+            <Bar dataKey="sessions" fill={C.accent} radius={[4, 4, 0, 0]} />
+            <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.text }} />
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+
+      {/* Last 3 sessions */}
+      {workouts.slice(0, 3).map(w => (
+        <Card key={w.id}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 24 }}>{typeIcon(w.type)}</span>
+              <div>
+                <T size={14} weight="700" color={typeColor(w.type)} style={{ display: "block", textTransform: "uppercase" }}>{w.type?.replace(/_/g, " ")}</T>
+                <T size={12} color={C.muted} mono>{fmt.date(w.date)} · {w.duration}min</T>
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <T size={20} weight="700" color={C.accent} mono style={{ display: "block" }}>RPE {w.rpe}</T>
+              {w.hrAvg && <T size={12} color={C.muted} mono>HR {w.hrAvg}/{w.hrMax}</T>}
+            </div>
+          </div>
+          {w.notes && <T size={12} color={C.light} style={{ display: "block", marginTop: 8, borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>{w.notes}</T>}
+        </Card>
+      ))}
+
+      {workouts.length === 0 && (
+        <Card style={{ textAlign: "center", padding: 32 }}>
+          <T size={32} style={{ display: "block", marginBottom: 8 }}>🏟</T>
+          <T size={16} weight="700" color={C.accent}>Log your first session</T><br />
+          <T size={13} color={C.muted}>Hit LOG below to start tracking</T>
+        </Card>
+      )}
+
+      {/* Hyrox benchmark quick ref */}
+      <Card accent>
+        <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 10 }}>PB Benchmarks</T>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px" }}>
+          {[
+            ["Hyrox PB", PROFILE.hyroxPB],
+            ["Half Marathon", PROFILE.benchmarks.HM],
+            ["FTP", `${PROFILE.benchmarks.FTP}W`],
+            ["Deadlift", `${PROFILE.benchmarks.DL}lbs`],
+            ["Squat", `${PROFILE.benchmarks.SQ}lbs`],
+            ["Bench", `${PROFILE.benchmarks.BP}lbs`],
+          ].map(([k, v]) => (
+            <div key={k} style={{ display: "flex", justifyContent: "space-between" }}>
+              <T size={12} color={C.muted}>{k}</T>
+              <T size={12} color={C.accent} mono weight="600">{v}</T>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+
+  // LOG TAB
+  const LogTab = () => (
+    <div className="fade-in" style={{ padding: "16px" }}>
+      <T size={22} weight="800" color={C.text} style={{ display: "block", marginBottom: 4 }}>LOG SESSION</T>
+      <T size={12} color={C.muted} style={{ display: "block", marginBottom: 20 }}>{new Date().toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" })}</T>
+
+      {logStep === 0 && (
+        <div className="slide-up">
+          <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 12 }}>Session Type</T>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {SESSION_TYPES.map(s => (
+              <button key={s.id} onClick={() => { setLogForm({ ...logForm, type: s.id }); setLogStep(1); }}
+                style={{ background: logForm.type === s.id ? s.color + "25" : C.card, border: `1px solid ${logForm.type === s.id ? s.color : C.border}`, borderRadius: 12, padding: "16px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 22 }}>{s.icon}</span>
+                <T size={13} weight="700" color={logForm.type === s.id ? s.color : C.text} style={{ textTransform: "uppercase" }}>{s.label}</T>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {logStep === 1 && (
+        <div className="slide-up">
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+            <span style={{ fontSize: 28 }}>{typeIcon(logForm.type)}</span>
+            <T size={18} weight="700" color={typeColor(logForm.type)} style={{ textTransform: "uppercase" }}>{logForm.type?.replace(/_/g, " ")}</T>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+            <div>
+              <T size={11} color={C.muted} style={{ display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Duration (min)</T>
+              <input type="number" placeholder="60" value={logForm.duration} onChange={e => setLogForm({ ...logForm, duration: e.target.value })} />
+            </div>
+            <div>
+              <T size={11} color={C.muted} style={{ display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Morning HRV</T>
+              <input type="number" placeholder="55" value={logForm.hrv} onChange={e => setLogForm({ ...logForm, hrv: e.target.value })} />
+            </div>
+            <div>
+              <T size={11} color={C.muted} style={{ display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>HR Avg</T>
+              <input type="number" placeholder="150" value={logForm.hrAvg} onChange={e => setLogForm({ ...logForm, hrAvg: e.target.value })} />
+            </div>
+            <div>
+              <T size={11} color={C.muted} style={{ display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>HR Max</T>
+              <input type="number" placeholder="178" value={logForm.hrMax} onChange={e => setLogForm({ ...logForm, hrMax: e.target.value })} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <T size={11} color={C.muted} style={{ textTransform: "uppercase", letterSpacing: 1 }}>RPE</T>
+              <T size={18} mono weight="700" color={logForm.rpe >= 8 ? C.danger : logForm.rpe >= 6 ? C.warn : C.teal}>{logForm.rpe}/10</T>
+            </div>
+            <input type="range" min="1" max="10" value={logForm.rpe} onChange={e => setLogForm({ ...logForm, rpe: e.target.value })} />
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+              <T size={10} color={C.muted}>Easy</T><T size={10} color={C.muted}>Moderate</T><T size={10} color={C.muted}>Max</T>
+            </div>
+          </div>
+
+          {["run", "hyrox_sim"].includes(logForm.type) && (
+            <div style={{ marginBottom: 10 }}>
+              <T size={11} color={C.muted} style={{ display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Run Splits (comma separated, sec)</T>
+              <input type="text" placeholder="232, 272, 292, 296..." value={logForm.runSplits} onChange={e => setLogForm({ ...logForm, runSplits: e.target.value })} />
+            </div>
+          )}
+
+          <Btn onPress={() => setLogStep(2)} full color={C.accent}>Next: Add Notes →</Btn>
+          <div style={{ marginTop: 10 }}>
+            <Btn onPress={() => setLogStep(0)} full outline color={C.muted} small>← Change Type</Btn>
+          </div>
+        </div>
+      )}
+
+      {logStep === 2 && (
+        <div className="slide-up">
+          <T size={14} weight="700" color={typeColor(logForm.type)} style={{ display: "block", textTransform: "uppercase", marginBottom: 16 }}>
+            {typeIcon(logForm.type)} {logForm.type?.replace(/_/g, " ")} · {logForm.duration}min · RPE {logForm.rpe}
+          </T>
+
+          <div style={{ marginBottom: 10 }}>
+            <T size={11} color={C.muted} style={{ display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Location</T>
+            <input type="text" placeholder="Altea / Basecamp / Outdoor / Condo..." value={logForm.location} onChange={e => setLogForm({ ...logForm, location: e.target.value })} />
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <T size={11} color={C.muted} style={{ display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Notes (what failed? legs or lungs?)</T>
+            <textarea rows={4} placeholder="Sled push — legs failed at 80m. Wall balls broke at rep 12. Compromised run felt strong..." value={logForm.notes} onChange={e => setLogForm({ ...logForm, notes: e.target.value })} style={{ resize: "vertical" }} />
+          </div>
+
+          <Btn onPress={submitLog} full color={C.accent}>SAVE SESSION ✓</Btn>
+          <div style={{ marginTop: 10 }}>
+            <Btn onPress={() => setLogStep(1)} full outline color={C.muted} small>← Back</Btn>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // HISTORY TAB
+  const HistoryTab = () => {
+    const [expanded, setExpanded] = useState(null);
+    return (
+      <div className="fade-in" style={{ padding: "16px" }}>
+        <T size={22} weight="800" style={{ display: "block", marginBottom: 4 }}>HISTORY</T>
+        <T size={12} color={C.muted} style={{ display: "block", marginBottom: 20 }}>{workouts.length} sessions logged</T>
+
+        {workouts.length === 0 && (
+          <Card style={{ textAlign: "center", padding: 40 }}>
+            <T size={32} style={{ display: "block", marginBottom: 8 }}>📋</T>
+            <T size={14} color={C.muted}>No sessions yet. Log your first workout.</T>
+          </Card>
+        )}
+
+        {workouts.map(w => (
+          <div key={w.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
+            <button onClick={() => setExpanded(expanded === w.id ? null : w.id)} style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 22 }}>{typeIcon(w.type)}</span>
+                <div style={{ textAlign: "left" }}>
+                  <T size={14} weight="700" color={typeColor(w.type)} style={{ display: "block", textTransform: "uppercase" }}>{w.type?.replace(/_/g, " ")}</T>
+                  <T size={11} color={C.muted} mono>{fmt.date(w.date)} {w.location && `· ${w.location}`}</T>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                <div style={{ textAlign: "right" }}>
+                  <T size={13} mono weight="600" color={C.text}>{w.duration}min</T><br />
+                  <T size={12} mono color={w.rpe >= 8 ? C.danger : w.rpe >= 6 ? C.warn : C.teal}>RPE {w.rpe}</T>
+                </div>
+                <T size={16} color={C.muted}>{expanded === w.id ? "▲" : "▼"}</T>
+              </div>
+            </button>
+            {expanded === w.id && (
+              <div className="slide-up" style={{ padding: "0 16px 16px", borderTop: `1px solid ${C.border}` }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 12 }}>
+                  {w.hrAvg && <div style={{ textAlign: "center" }}>
+                    <T size={18} mono weight="700" color={C.accent} style={{ display: "block" }}>{w.hrAvg}</T>
+                    <T size={10} color={C.muted}>HR AVG</T>
+                  </div>}
+                  {w.hrMax && <div style={{ textAlign: "center" }}>
+                    <T size={18} mono weight="700" color={C.danger} style={{ display: "block" }}>{w.hrMax}</T>
+                    <T size={10} color={C.muted}>HR MAX</T>
+                  </div>}
+                  {w.hrv && <div style={{ textAlign: "center" }}>
+                    <T size={18} mono weight="700" color={C.teal} style={{ display: "block" }}>{w.hrv}ms</T>
+                    <T size={10} color={C.muted}>HRV</T>
+                  </div>}
+                </div>
+                {w.runSplits && (
+                  <div style={{ marginTop: 12 }}>
+                    <T size={11} color={C.muted} style={{ textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 6 }}>Run Splits</T>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {w.runSplits.split(",").map((s, i) => (
+                        <T key={i} size={13} mono color={C.accent} style={{ background: C.accent + "15", padding: "4px 8px", borderRadius: 6 }}>km{i + 1}: {s.trim()}s</T>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {w.notes && <T size={13} color={C.light} style={{ display: "block", marginTop: 12, lineHeight: 1.6 }}>{w.notes}</T>}
+                <button onClick={async () => {
+                  const updated = workouts.filter(x => x.id !== w.id);
+                  await saveWorkouts(updated);
+                  showToast("Deleted", C.danger);
+                }} style={{ marginTop: 12, background: "none", border: `1px solid ${C.danger}30`, color: C.danger, borderRadius: 8, padding: "8px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'Syne'" }}>
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // ANALYZE TAB
+  const AnalyzeTab = () => (
+    <div className="fade-in" style={{ padding: "16px" }}>
+      <T size={22} weight="800" style={{ display: "block", marginBottom: 4 }}>AI ANALYSIS</T>
+      <T size={12} color={C.muted} style={{ display: "block", marginBottom: 20 }}>Powered by Claude · Analyzes last 14 sessions</T>
+
+      <Card accent>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+          <Pill label="Sessions Analyzed" value={String(Math.min(workouts.length, 14))} />
+          <Pill label="7d Avg HRV" value={avgHrv7 ? `${avgHrv7.toFixed(0)}ms` : "—"} color={C.teal} />
+        </div>
+        <Btn onPress={runAiAnalysis} full color={C.accent}>{aiLoading ? "ANALYZING..." : "RUN WEEKLY ANALYSIS"}</Btn>
+      </Card>
+
+      {aiLoading && (
+        <Card style={{ textAlign: "center", padding: 32 }}>
+          <div className="pulse">
+            <T size={32} style={{ display: "block", marginBottom: 8 }}>🧬</T>
+            <T size={14} color={C.accent}>Processing training data...</T><br />
+            <T size={12} color={C.muted}>Analyzing patterns, interference risks, limiters</T>
+          </div>
+        </Card>
+      )}
+
+      {aiResult && !aiLoading && (
+        <Card>
+          <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 12 }}>Performance Director Report</T>
+          <div style={{ color: C.text, fontSize: 14, lineHeight: 1.7, fontFamily: "'Syne', sans-serif", whiteSpace: "pre-wrap" }}>{aiResult}</div>
+        </Card>
+      )}
+
+      {/* Hyrox Station Reference */}
+      <Card>
+        <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 12 }}>Your PB Station Splits</T>
+        {[
+          ["SkiErg", "3:52"], ["Sled Push", "1:25"], ["Sled Pull", "2:46"], ["Burpee BJ", "2:41"],
+          ["RowErg", "4:22"], ["Farmers", "1:21"], ["Lunges", "2:27"], ["Wall Balls", "3:27"], ["Roxzone", "5:11"],
+        ].map(([k, v]) => (
+          <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+            <T size={13} color={C.light}>{k}</T>
+            <T size={13} mono weight="700" color={C.accent}>{v}</T>
+          </div>
+        ))}
+      </Card>
+
+      {/* Run split analysis */}
+      {workouts.length > 0 && (
+        <Card>
+          <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 12 }}>Compromised Run Index</T>
+          <T size={12} color={C.muted} style={{ display: "block", marginBottom: 8 }}>PB: Run1 3:52 → Run8 4:00 — drift index: +2.8%</T>
+          <T size={12} color={C.light} style={{ display: "block" }}>Log Hyrox sim splits to track your compromised run delta. Target: keep drift below 15% across all 8 runs.</T>
+        </Card>
+      )}
+    </div>
+  );
+
+  // ─── RENDER ────────────────────────────────────────────────────────────────
+  if (!loaded) return (
+    <div style={{ background: C.bg, height: "100dvh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div className="pulse" style={{ textAlign: "center" }}>
+        <T size={40} style={{ display: "block" }}>🏟</T>
+        <T size={16} weight="700" color={C.accent}>LOADING</T>
+      </div>
+    </div>
+  );
+
+  const NAV_ITEMS = [
+    { id: "HOME", icon: "⌂", label: "HOME" },
+    { id: "LOG", icon: "+", label: "LOG" },
+    { id: "HISTORY", icon: "≡", label: "HISTORY" },
+    { id: "ANALYZE", icon: "◈", label: "ANALYZE" },
+  ];
+
+  return (
+    <div style={{ background: C.bg, minHeight: "100dvh", maxWidth: 480, margin: "0 auto", fontFamily: "'Syne', sans-serif", paddingBottom: 80, position: "relative" }}>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", background: toast.color, color: "#000", padding: "10px 20px", borderRadius: 10, fontSize: 13, fontWeight: 700, zIndex: 999, fontFamily: "'Syne'", letterSpacing: 1 }}>
+          {toast.msg}
+        </div>
+      )}
+
+      {/* Content */}
+      <div style={{ paddingTop: 8, overflowY: "auto", maxHeight: "calc(100dvh - 72px)" }}>
+        {tab === "HOME" && <HomeTab />}
+        {tab === "LOG" && <LogTab />}
+        {tab === "HISTORY" && <HistoryTab />}
+        {tab === "ANALYZE" && <AnalyzeTab />}
+      </div>
+
+      {/* Bottom nav */}
+      <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: C.surface, borderTop: `1px solid ${C.border}`, display: "flex", zIndex: 100 }}>
+        {NAV_ITEMS.map(n => (
+          <button key={n.id} onClick={() => setTab(n.id)} style={{
+            flex: 1, background: "none", border: "none", cursor: "pointer", padding: "12px 0",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+          }}>
+            <span style={{ fontSize: n.id === "LOG" ? 28 : 18, color: tab === n.id ? C.accent : C.muted, fontWeight: 700 }}>{n.icon}</span>
+            <T size={9} color={tab === n.id ? C.accent : C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase" }}>{n.label}</T>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
