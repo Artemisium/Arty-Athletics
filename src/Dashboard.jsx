@@ -55,6 +55,20 @@ const MARATHON_RACE_DATE = "2026-10-18";
 const WORKOUTS_KEY = "arty:workouts";
 const HRV_KEY = "arty:hrv";
 const MESO_KEY = "arty:mesocycle";
+const WEEK1_KEY = "arty:week1_complete";
+
+const WEEK1_PLAN = [
+  { id: "mon_run",      day: "MON", date: "Mar 3", type: "run",       title: "Easy Run",                        details: "30 min · HR cap 150 · pace 6:15–6:50/km · walk if HR drifts",                                                         coach: "Walk breaks are built in. Connective tissue reconditioning — no ego." },
+  { id: "mon_acc",      day: "MON", date: "Mar 3", type: "strength",  title: "Accessory A — Push Volume",       details: "15–18 min · Push-ups 3×15–20 · Pike push-ups 3×8–12 · Diamond 2×12 · Band pull-aparts 3×20",                         coach: "Stop 2–3 reps short of failure. Frequency, not destruction." },
+  { id: "tue_climb",    day: "TUE", date: "Mar 4", type: "climb",     title: "Bouldering + Erg Warmup",         details: "60–75 min · V3–V5 · Warmup: 10 min ski erg + 5 min row @ Z1–Z2",                                                     coach: "Log your erg warmup on Garmin. Upper body pulling complements tomorrow's run." },
+  { id: "tue_acc",      day: "TUE", date: "Mar 4", type: "recovery",  title: "Accessory B — Core + Run Prehab", details: "15–20 min · Dead bugs 3×10/side · Side planks 2×30s · Calf raises 3×15 · Tibialis raises 3×15",                     coach: "Tibialis raises are #1 prehab for Achilles/shin protection on zero-drop return." },
+  { id: "wed_run",      day: "WED", date: "Mar 5", type: "run",       title: "Easy Run",                        details: "30 min · HR cap 152 · pace 6:15–6:50/km · cut to 25 min if calves sore",                                              coach: "Sharp localized pain = stop. Diffuse soreness = normal, keep going." },
+  { id: "wed_acc",      day: "WED", date: "Mar 5", type: "strength",  title: "Accessory A — Push Volume",       details: "15–18 min · Same as Monday · reduce by 1 set if chest/shoulders sore",                                               coach: "Goal is push frequency 3x/week. Sub-maximal always." },
+  { id: "thu_rest",     day: "THU", date: "Mar 6", type: "recovery",  title: "Full Rest",                       details: "No training · 8+ hrs sleep · 160–180g protein · optional foam rolling",                                               coach: "Neural freshness for Friday's push session. This rest is the prescription." },
+  { id: "fri_strength", day: "FRI", date: "Mar 7", type: "strength",  title: "Full Strength — Push Priority",   details: "70–75 min · Warmup: 8 min row erg · Block 1: Bench + OHP first · Block 2: Squat/DL maintenance",                       coach: "Push goes first while you're sharpest. Add 2.5 lbs/week to bench and OHP through Week 8." },
+  { id: "sat_hyrox",    day: "SAT", date: "Mar 8", type: "hyrox_sim", title: "Hyrox Endurance Class",           details: "~55 min · Target HR 155–165 avg · RPE 6–7 · walk transitions · 70–75% on ergs",                                       coach: "DO NOT chase times. TE 2–3 target. You are training for October, not performing for the class." },
+  { id: "sun_run",      day: "SUN", date: "Mar 9", type: "run",       title: "Long Easy Run + Accessory B",     details: "35–40 min · HR cap 152 · planned walk at 20 min · lakefront recommended",                                             coach: "If Saturday left you fatigued, drop to 30 min. Never run through excessive fatigue in Week 1." },
+];
 
 const DEFAULT_MESO = {
   name: "Base Mesocycle — Aerobic Rebuild",
@@ -79,6 +93,7 @@ export default function ArtyAthletics() {
   const [aiLoading, setAiLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [mesocycle, setMesocycle] = useState(DEFAULT_MESO);
+  const [completedSessions, setCompletedSessions] = useState([]);
 
   // Log form state
   const [logForm, setLogForm] = useState({
@@ -127,6 +142,10 @@ export default function ArtyAthletics() {
       const m = await window.storage.get(MESO_KEY);
       if (m) setMesocycle(JSON.parse(m.value));
     } catch {}
+    try {
+      const wk = await window.storage.get(WEEK1_KEY);
+      if (wk) setCompletedSessions(JSON.parse(wk.value));
+    } catch {}
     setLoaded(true);
   }
 
@@ -142,6 +161,14 @@ export default function ArtyAthletics() {
   function showToast(msg, color = C.teal) {
     setToast({ msg, color });
     setTimeout(() => setToast(null), 2500);
+  }
+
+  async function toggleSession(id) {
+    const updated = completedSessions.includes(id)
+      ? completedSessions.filter(s => s !== id)
+      : [...completedSessions, id];
+    setCompletedSessions(updated);
+    await window.storage.set(WEEK1_KEY, JSON.stringify(updated));
   }
 
   async function submitLog() {
@@ -657,6 +684,100 @@ Be direct, data-first, no fluff. Use physiological principles. Max 400 words.`;
     </div>
   );
 
+  // WEEK TAB
+  const WeekTab = () => {
+    const total = WEEK1_PLAN.length;
+    const done = completedSessions.length;
+    const pct = Math.round((done / total) * 100);
+
+    const days = [...new Set(WEEK1_PLAN.map(s => s.day))];
+
+    return (
+      <div className="fade-in" style={{ padding: "16px" }}>
+        <T size={22} weight="800" color={C.text} style={{ display: "block", marginBottom: 2 }}>WEEK 1</T>
+        <T size={12} color={C.muted} style={{ display: "block", marginBottom: 16 }}>Mar 3–9 · Base Phase</T>
+
+        {/* Progress bar */}
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px 16px", marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <T size={11} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 2 }}>Week Progress</T>
+            <T size={14} weight="700" color={pct === 100 ? C.teal : C.accent} mono>{done}/{total} sessions</T>
+          </div>
+          <div style={{ background: C.border, borderRadius: 4, height: 6, overflow: "hidden" }}>
+            <div style={{ background: pct === 100 ? C.teal : C.accent, height: "100%", width: `${pct}%`, borderRadius: 4, transition: "width 0.4s ease" }} />
+          </div>
+          {pct === 100 && (
+            <T size={12} color={C.teal} weight="700" style={{ display: "block", marginTop: 8, textAlign: "center", letterSpacing: 1 }}>WEEK COMPLETE ✓</T>
+          )}
+        </div>
+
+        {/* Sessions grouped by day */}
+        {days.map(day => {
+          const sessions = WEEK1_PLAN.filter(s => s.day === day);
+          const date = sessions[0].date;
+          const allDone = sessions.every(s => completedSessions.includes(s.id));
+          return (
+            <div key={day} style={{ marginBottom: 18 }}>
+              {/* Day header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <T size={12} weight="800" color={allDone ? C.muted : C.accent} style={{ textTransform: "uppercase", letterSpacing: 2, minWidth: 36 }}>{day}</T>
+                <T size={12} color={C.muted} mono>{date}</T>
+                {allDone && <T size={11} color={C.teal} weight="700">✓</T>}
+                <div style={{ flex: 1, height: 1, background: C.border }} />
+              </div>
+
+              {/* Session cards */}
+              {sessions.map(s => {
+                const isDone = completedSessions.includes(s.id);
+                const color = typeColor(s.type);
+                return (
+                  <button key={s.id} onClick={() => toggleSession(s.id)} style={{
+                    width: "100%", background: isDone ? C.surface : C.card,
+                    border: `1px solid ${isDone ? C.border : color + "40"}`,
+                    borderRadius: 12, padding: "14px", marginBottom: 8,
+                    cursor: "pointer", textAlign: "left", display: "block",
+                    opacity: isDone ? 0.6 : 1, transition: "opacity 0.2s, border-color 0.2s",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      {/* Checkbox */}
+                      <div style={{
+                        width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
+                        border: `2px solid ${isDone ? C.teal : color}`,
+                        background: isDone ? C.teal : "transparent",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "background 0.2s",
+                      }}>
+                        {isDone && <span style={{ color: "#000", fontSize: 13, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+                      </div>
+                      {/* Icon + title */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                          <span style={{ fontSize: 15 }}>{typeIcon(s.type)}</span>
+                          <T size={14} weight="700" color={isDone ? C.muted : color}
+                            style={{ textDecoration: isDone ? "line-through" : "none", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                            {s.title}
+                          </T>
+                        </div>
+                        <T size={12} color={C.muted} mono style={{ display: "block", lineHeight: 1.5 }}>{s.details}</T>
+                        {!isDone && (
+                          <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+                            <T size={11} color={C.light} style={{ display: "block", lineHeight: 1.5, fontStyle: "italic" }}>
+                              💬 {s.coach}
+                            </T>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // ─── RENDER ────────────────────────────────────────────────────────────────
   if (!loaded) return (
     <div style={{ background: C.bg, height: "100dvh", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -668,8 +789,9 @@ Be direct, data-first, no fluff. Use physiological principles. Max 400 words.`;
   );
 
   const NAV_ITEMS = [
-    { id: "HOME", icon: "⌂", label: "HOME" },
-    { id: "LOG", icon: "+", label: "LOG" },
+    { id: "HOME",    icon: "⌂", label: "HOME" },
+    { id: "WEEK",    icon: "☑", label: "WEEK" },
+    { id: "LOG",     icon: "+", label: "LOG" },
     { id: "HISTORY", icon: "≡", label: "HISTORY" },
     { id: "ANALYZE", icon: "◈", label: "ANALYZE" },
   ];
@@ -686,8 +808,9 @@ Be direct, data-first, no fluff. Use physiological principles. Max 400 words.`;
 
       {/* Content */}
       <div style={{ paddingTop: 8, overflowY: "auto", maxHeight: "calc(100dvh - 72px)" }}>
-        {tab === "HOME" && <HomeTab />}
-        {tab === "LOG" && <LogTab />}
+        {tab === "HOME"    && <HomeTab />}
+        {tab === "WEEK"    && <WeekTab />}
+        {tab === "LOG"     && <LogTab />}
         {tab === "HISTORY" && <HistoryTab />}
         {tab === "ANALYZE" && <AnalyzeTab />}
       </div>
