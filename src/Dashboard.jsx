@@ -280,25 +280,13 @@ Be direct, data-first, no fluff. Use physiological principles. Max 400 words.`;
   const HomeTab = () => (
     <div className="fade-in" style={{ padding: "16px 16px 0" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-        <div>
-          <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block" }}>Performance OS</T>
-          <T size={26} weight="800" color={C.accent} style={{ display: "block", fontFamily: "'Syne'" }}>ARTY'S<br />ATHLETICS</T>
-        </div>
-
-        {/* Race countdowns */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-          <div style={{ display: "flex", gap: 8 }}>
-            <div style={{ textAlign: "center", background: C.accent + "15", border: `1px solid ${C.accent}30`, borderRadius: 10, padding: "8px 12px" }}>
-              <T size={36} weight="800" color={C.accent} mono style={{ display: "block", lineHeight: 1 }}>{daysToHyrox}</T>
-              <T size={9} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1, display: "block" }}>DAYS TO HYROX</T>
-            </div>
-            <div style={{ textAlign: "center", background: C.teal + "15", border: `1px solid ${C.teal}30`, borderRadius: 10, padding: "8px 12px" }}>
-              <T size={36} weight="800" color={C.teal} mono style={{ display: "block", lineHeight: 1 }}>{daysToMarathon}</T>
-              <T size={9} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1, display: "block" }}>DAYS TO MARATHON</T>
-            </div>
+      <div style={{ marginBottom: 14 }}>
+        {/* Title row */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div>
+            <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block" }}>Performance OS</T>
+            <T size={26} weight="800" color={C.accent} style={{ display: "block", fontFamily: "'Syne'" }}>ARTY'S ATHLETICS</T>
           </div>
-
           {mesocycle.phase !== "TBD" && (
             <div style={{ textAlign: "right" }}>
               <T size={10} color={C.purple} weight="700" mono style={{ textTransform: "uppercase", letterSpacing: 1 }}>{mesocycle.phase}</T>
@@ -307,6 +295,20 @@ Be direct, data-first, no fluff. Use physiological principles. Max 400 words.`;
               )}
             </div>
           )}
+        </div>
+
+        {/* Race countdowns — full width */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ textAlign: "center", background: C.accent + "15", border: `1px solid ${C.accent}30`, borderRadius: 12, padding: "14px 10px" }}>
+            <T size={44} weight="800" color={C.accent} mono style={{ display: "block", lineHeight: 1 }}>{daysToHyrox}</T>
+            <T size={10} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1, display: "block", marginTop: 6 }}>Days to Hyrox</T>
+            <T size={10} color={C.muted} mono style={{ display: "block" }}>Oct 4, 2026</T>
+          </div>
+          <div style={{ textAlign: "center", background: C.teal + "15", border: `1px solid ${C.teal}30`, borderRadius: 12, padding: "14px 10px" }}>
+            <T size={44} weight="800" color={C.teal} mono style={{ display: "block", lineHeight: 1 }}>{daysToMarathon}</T>
+            <T size={10} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1, display: "block", marginTop: 6 }}>Days to Marathon</T>
+            <T size={10} color={C.muted} mono style={{ display: "block" }}>Oct 18, 2026</T>
+          </div>
         </div>
       </div>
 
@@ -673,7 +675,7 @@ Be direct, data-first, no fluff. Use physiological principles. Max 400 words.`;
   ];
 
   return (
-    <div style={{ background: C.bg, minHeight: "100dvh", maxWidth: 480, margin: "0 auto", fontFamily: "'Syne', sans-serif", paddingBottom: 80, position: "relative" }}>
+    <div style={{ background: C.bg, minHeight: "100dvh", maxWidth: 480, width: "100%", margin: "0 auto", fontFamily: "'Syne', sans-serif", paddingBottom: 80, position: "relative", overflowX: "hidden" }}>
 
       {/* Toast */}
       {toast && (
