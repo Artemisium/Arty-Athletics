@@ -59,6 +59,63 @@ const RADAR_DATA = [
   { metric: "VERT",     score: 50 },
 ];
 
+const HYROX_LABELS = [
+  "SKI","PUSH","PULL","BBJ","ROW","CARRY","LUNGE","WB",
+  "R1","R2","R3","R4","R5","R6","R7","R8",
+];
+
+const HYROX_BOUNDS = {
+  SKI:[450,160], PUSH:[180,42],  PULL:[300,85],  BBJ:[360,105],
+  ROW:[460,175], CARRY:[180,52], LUNGE:[310,100], WB:[430,170],
+  R1:[540,190],  R2:[560,200],  R3:[570,205],   R4:[575,208],
+  R5:[575,208],  R6:[570,205],  R7:[565,200],   R8:[550,190],
+};
+
+const HYROX_SERIES_DATA = {
+  current: {
+    SKI:232, PUSH:85,  PULL:166, BBJ:161, ROW:262, CARRY:81, LUNGE:147, WB:207,
+    R1:232,  R2:272,  R3:292,  R4:296,  R5:295,  R6:287,  R7:294,  R8:240,
+  },
+  maxPerf: {
+    SKI:195, PUSH:72,  PULL:145, BBJ:145, ROW:230, CARRY:70, LUNGE:128, WB:190,
+    R1:210,  R2:248,  R3:265,  R4:270,  R5:268,  R6:260,  R7:265,  R8:215,
+  },
+  target: {
+    SKI:205, PUSH:75,  PULL:150, BBJ:150, ROW:240, CARRY:74, LUNGE:135, WB:200,
+    R1:222,  R2:258,  R3:275,  R4:280,  R5:278,  R6:270,  R7:275,  R8:228,
+  },
+  elite: {
+    SKI:190, PUSH:60,  PULL:105, BBJ:133, ROW:215, CARRY:68, LUNGE:122, WB:213,
+    R1:218,  R2:222,  R3:225,  R4:228,  R5:226,  R6:223,  R7:225,  R8:219,
+  },
+};
+
+const HYROX_SERIES_META = [
+  { key:"current", label:"Current",  color:"#f0a500" },
+  { key:"maxPerf", label:"Max Perf", color:"#00d4aa" },
+  { key:"target",  label:"Target",   color:"#7c6af7" },
+  { key:"elite",   label:"2024 1st", color:"#ff6b6b" },
+];
+
+function hyroxNorm(seconds, [floor, ceiling]) {
+  return Math.max(0, Math.min(100, Math.round((floor - seconds) / (floor - ceiling) * 100)));
+}
+
+const HYROX_RADAR_DATA = HYROX_LABELS.map(k => ({
+  metric:  k,
+  current: hyroxNorm(HYROX_SERIES_DATA.current[k], HYROX_BOUNDS[k]),
+  maxPerf: hyroxNorm(HYROX_SERIES_DATA.maxPerf[k],  HYROX_BOUNDS[k]),
+  target:  hyroxNorm(HYROX_SERIES_DATA.target[k],   HYROX_BOUNDS[k]),
+  elite:   hyroxNorm(HYROX_SERIES_DATA.elite[k],    HYROX_BOUNDS[k]),
+}));
+
+function fmtHMS(s) {
+  return `${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+}
+const HYROX_TOTALS = Object.fromEntries(
+  Object.entries(HYROX_SERIES_DATA).map(([k,v]) => [k, fmtHMS(Object.values(v).reduce((a,b)=>a+b,0))])
+);
+
 const fmt = {
   sec: (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`,
   pace: (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}/km`,
@@ -108,6 +165,8 @@ export default function ArtyAthletics() {
   const [toast, setToast] = useState(null);
   const [mesocycle, setMesocycle] = useState(DEFAULT_MESO);
   const [completedSessions, setCompletedSessions] = useState([]);
+  const [hyroxActive, setHyroxActive] = useState({ current:true, maxPerf:true, target:true, elite:true });
+  const [hyroxView,   setHyroxView]   = useState("overlay");
 
   // Log form state
   const [logForm, setLogForm] = useState({
@@ -183,6 +242,10 @@ export default function ArtyAthletics() {
       : [...completedSessions, id];
     setCompletedSessions(updated);
     await window.storage.set(WEEK1_KEY, JSON.stringify(updated));
+  }
+
+  function toggleHyroxSeries(key) {
+    setHyroxActive(prev => ({ ...prev, [key]: !prev[key] }));
   }
 
   async function submitLog() {
@@ -743,6 +806,153 @@ export default function ArtyAthletics() {
     );
   };
 
+  // HYROX TAB
+  const HyroxTab = () => {
+    const HyroxTick = ({ x, y, cx, cy, payload }) => {
+      const dx = x - cx; const dy = y - cy;
+      const len = Math.sqrt(dx*dx + dy*dy) || 1;
+      const ox = (dx/len)*10; const oy = (dy/len)*10;
+      const anchor = dx > 2 ? "start" : dx < -2 ? "end" : "middle";
+      const baseline = dy > 2 ? "hanging" : dy < -2 ? "auto" : "central";
+      return (
+        <text x={x+ox} y={y+oy} textAnchor={anchor} dominantBaseline={baseline}
+          style={{ fontFamily:"'Syne'", fontSize:8, fontWeight:700, fill:C.light, letterSpacing:0.5 }}>
+          {payload.value}
+        </text>
+      );
+    };
+
+    const SmallTick = ({ x, y, cx, cy, payload }) => {
+      const dx = x - cx; const dy = y - cy;
+      const len = Math.sqrt(dx*dx + dy*dy) || 1;
+      const ox = (dx/len)*8; const oy = (dy/len)*8;
+      const anchor = dx > 2 ? "start" : dx < -2 ? "end" : "middle";
+      const baseline = dy > 2 ? "hanging" : dy < -2 ? "auto" : "central";
+      return (
+        <text x={x+ox} y={y+oy} textAnchor={anchor} dominantBaseline={baseline}
+          style={{ fontFamily:"'Syne'", fontSize:7, fontWeight:700, fill:C.muted, letterSpacing:0.3 }}>
+          {payload.value}
+        </text>
+      );
+    };
+
+    return (
+      <div className="fade-in" style={{ padding: "16px 16px 0" }}>
+        {/* Header */}
+        <div style={{ marginBottom: 14 }}>
+          <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block" }}>Race Analysis</T>
+          <T size={26} weight="800" color={C.accent} style={{ display: "block", fontFamily: "'Syne'" }}>HYROX FOCUS</T>
+          <T size={11} color={C.muted} style={{ display: "block" }}>16-segment profile · Singles · Oct 2026</T>
+        </div>
+
+        {/* Series toggles + view toggle */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12, alignItems: "center" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, flex: 1 }}>
+            {HYROX_SERIES_META.map(s => {
+              const active = hyroxActive[s.key];
+              return (
+                <button key={s.key} onClick={() => toggleHyroxSeries(s.key)} style={{
+                  background: active ? s.color + "20" : "transparent",
+                  border: `1px solid ${active ? s.color : C.border}`,
+                  borderRadius: 20, padding: "6px 12px",
+                  cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+                  opacity: active ? 1 : 0.5, transition: "all 0.2s",
+                }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: active ? s.color : "transparent", border: `2px solid ${s.color}`, display: "inline-block", flexShrink: 0 }} />
+                  <T size={11} color={active ? s.color : C.muted} weight="700" style={{ textTransform: "uppercase", letterSpacing: 0.5 }}>{s.label}</T>
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={() => setHyroxView(v => v === "overlay" ? "sidebyside" : "overlay")} style={{
+            background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
+            padding: "6px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+            color: C.light, fontSize: 11, fontFamily: "'Syne'", fontWeight: 700, letterSpacing: 0.5,
+            whiteSpace: "nowrap",
+          }}>
+            {hyroxView === "overlay" ? "⊞ Side by Side" : "⊟ Overlay"}
+          </button>
+        </div>
+
+        {/* Chart area */}
+        {hyroxView === "overlay" ? (
+          <Card>
+            <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>Overlay — All Series</T>
+            <ResponsiveContainer width="100%" height={300}>
+              <RadarChart data={HYROX_RADAR_DATA} margin={{ top: 16, right: 28, bottom: 16, left: 28 }}>
+                <PolarGrid stroke={C.border} />
+                <PolarAngleAxis dataKey="metric" tick={HyroxTick} />
+                <PolarRadiusAxis domain={[0,100]} tick={false} axisLine={false} />
+                <Radar dataKey={() => 100} stroke={C.border} fill={C.border} fillOpacity={0.08} strokeDasharray="4 3" strokeWidth={1} dot={false} />
+                {HYROX_SERIES_META.map(s => hyroxActive[s.key] ? (
+                  <Radar key={s.key} dataKey={s.key} stroke={s.color} fill={s.color} fillOpacity={0.15} strokeWidth={2}
+                    dot={{ r: 2, fill: s.color, strokeWidth: 0 }} activeDot={{ r: 4, fill: s.color }} />
+                ) : null)}
+                <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 11, color: C.text }}
+                  formatter={(v, name) => [`${v}`, HYROX_SERIES_META.find(s => s.key === name)?.label || name]} />
+              </RadarChart>
+            </ResponsiveContainer>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 8, justifyContent: "center" }}>
+              {HYROX_SERIES_META.map(s => (
+                <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 5, opacity: hyroxActive[s.key] ? 1 : 0.3 }}>
+                  <div style={{ width: 20, height: 2, background: s.color, borderRadius: 1 }} />
+                  <T size={10} color={s.color} weight="600" style={{ textTransform: "uppercase" }}>{s.label}</T>
+                </div>
+              ))}
+            </div>
+          </Card>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+            {HYROX_SERIES_META.map(s => {
+              const active = hyroxActive[s.key];
+              return (
+                <div key={s.key} style={{
+                  background: C.card,
+                  border: `1px solid ${active ? s.color + "60" : C.border}`,
+                  borderRadius: 12, padding: "10px",
+                  opacity: active ? 1 : 0.4,
+                  transition: "opacity 0.2s, border-color 0.2s",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: s.color }} />
+                    <T size={10} color={s.color} weight="700" style={{ textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</T>
+                  </div>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <RadarChart data={HYROX_RADAR_DATA} margin={{ top: 12, right: 20, bottom: 12, left: 20 }}>
+                      <PolarGrid stroke={C.border} />
+                      <PolarAngleAxis dataKey="metric" tick={SmallTick} />
+                      <PolarRadiusAxis domain={[0,100]} tick={false} axisLine={false} />
+                      <Radar dataKey={() => 100} stroke={C.border} fill={C.border} fillOpacity={0.06} strokeDasharray="3 2" strokeWidth={1} dot={false} />
+                      <Radar dataKey={s.key} stroke={s.color} fill={s.color} fillOpacity={0.2} strokeWidth={1.5} dot={false} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Stats card */}
+        <Card>
+          <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 10 }}>Est. Total Race Time</T>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+            {HYROX_SERIES_META.map(s => (
+              <div key={s.key} style={{
+                background: hyroxActive[s.key] ? s.color + "15" : C.surface,
+                border: `1px solid ${hyroxActive[s.key] ? s.color + "40" : C.border}`,
+                borderRadius: 8, padding: "8px 6px", textAlign: "center",
+                opacity: hyroxActive[s.key] ? 1 : 0.4, transition: "all 0.2s",
+              }}>
+                <T size={9} color={hyroxActive[s.key] ? s.color : C.muted} weight="700" style={{ display: "block", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{s.label}</T>
+                <T size={12} color={hyroxActive[s.key] ? s.color : C.muted} mono weight="700" style={{ display: "block" }}>{HYROX_TOTALS[s.key]}</T>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    );
+  };
+
   // ─── RENDER ────────────────────────────────────────────────────────────────
   if (!loaded) return (
     <div style={{ background: C.bg, height: "100dvh", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -758,6 +968,7 @@ export default function ArtyAthletics() {
     { id: "WEEK",    icon: "☑", label: "WEEK" },
     { id: "LOG",     icon: "+", label: "LOG" },
     { id: "HISTORY", icon: "≡", label: "HISTORY" },
+    { id: "HYROX",   icon: "⬡", label: "HYROX" },
   ];
 
   return (
@@ -776,6 +987,7 @@ export default function ArtyAthletics() {
         {tab === "WEEK"    && <WeekTab />}
         {tab === "LOG"     && <LogTab />}
         {tab === "HISTORY" && <HistoryTab />}
+        {tab === "HYROX"   && <HyroxTab />}
       </div>
 
       {/* Bottom nav */}
