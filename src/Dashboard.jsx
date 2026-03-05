@@ -105,8 +105,6 @@ export default function ArtyAthletics() {
   const [workouts, setWorkouts] = useState([]);
   const [hrvLog, setHrvLog] = useState([]);
   const [loaded, setLoaded] = useState(false);
-  const [aiResult, setAiResult] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [mesocycle, setMesocycle] = useState(DEFAULT_MESO);
   const [completedSessions, setCompletedSessions] = useState([]);
@@ -208,56 +206,6 @@ export default function ArtyAthletics() {
     setLogStep(0);
     showToast("SESSION LOGGED ✓");
     setTab("HOME");
-  }
-
-  async function runAiAnalysis() {
-    setAiLoading(true);
-    setAiResult("");
-    const recent = workouts.slice(0, 14);
-    const hrvRecent = hrvLog.slice(0, 7);
-    const avgHrv = hrvRecent.length ? (hrvRecent.reduce((a, b) => a + b.value, 0) / hrvRecent.length).toFixed(1) : "N/A";
-    const sessionSummary = recent.map(w =>
-      `${fmt.date(w.date)} | ${w.type} | ${w.duration}min | HR ${w.hrAvg}/${w.hrMax} | RPE ${w.rpe}${w.notes ? " | " + w.notes : ""}`
-    ).join("\n");
-
-    const prompt = `You are an elite performance director for Artem Kobelev, a hybrid athlete training for Hyrox 2025.
-
-ATHLETE BENCHMARKS:
-- Hyrox PB: 1:04:14 (Men's Open Doubles)
-- Run splits: 3:52 / 4:32 / 4:52 / 4:56 / 4:55 / 4:47 / 4:54 / 4:00
-- Station benchmarks: Ski 3:52 | Sled Push 1:25 | Sled Pull 2:46 | BBJ 2:41 | Row 4:22 | Carry 1:21 | Lunges 2:27 | WB 3:27
-- FTP: 290W | HM: 1:39:30 | DL: 385 | SQ: 275 | BP: 185
-- 7-day avg HRV (rMSSD): ${avgHrv}ms
-
-RECENT TRAINING LOG (last 14 sessions):
-${sessionSummary || "No sessions logged yet."}
-
-TASK:
-1. Identify top 3 limiters based on this training data
-2. Flag any interference effect or overtraining risk
-3. Assess recovery status based on HRV trend
-4. Prescribe the 3 most important sessions for next week with specific paces/loads
-5. One sentence on the biggest gap vs elite Hyrox Open benchmarks
-
-Be direct, data-first, no fluff. Use physiological principles. Max 400 words.`;
-
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [{ role: "user", content: prompt }]
-        })
-      });
-      const data = await res.json();
-      const text = data.content?.map(b => b.text || "").join("\n") || "Analysis unavailable.";
-      setAiResult(text);
-    } catch (e) {
-      setAiResult("Error running analysis. Check connection.");
-    }
-    setAiLoading(false);
   }
 
   // ─── COMPUTED DATA ─────────────────────────────────────────────────────────
@@ -701,62 +649,6 @@ Be direct, data-first, no fluff. Use physiological principles. Max 400 words.`;
     );
   };
 
-  // ANALYZE TAB
-  const AnalyzeTab = () => (
-    <div className="fade-in" style={{ padding: "16px" }}>
-      <T size={22} weight="800" style={{ display: "block", marginBottom: 4 }}>AI ANALYSIS</T>
-      <T size={12} color={C.muted} style={{ display: "block", marginBottom: 20 }}>Powered by Claude · Analyzes last 14 sessions</T>
-
-      <Card accent>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-          <Pill label="Sessions Analyzed" value={String(Math.min(workouts.length, 14))} />
-          <Pill label="7d Avg HRV" value={avgHrv7 ? `${avgHrv7.toFixed(0)}ms` : "—"} color={C.teal} />
-        </div>
-        <Btn onPress={runAiAnalysis} full color={C.accent}>{aiLoading ? "ANALYZING..." : "RUN WEEKLY ANALYSIS"}</Btn>
-      </Card>
-
-      {aiLoading && (
-        <Card style={{ textAlign: "center", padding: 32 }}>
-          <div className="pulse">
-            <T size={32} style={{ display: "block", marginBottom: 8 }}>🧬</T>
-            <T size={14} color={C.accent}>Processing training data...</T><br />
-            <T size={12} color={C.muted}>Analyzing patterns, interference risks, limiters</T>
-          </div>
-        </Card>
-      )}
-
-      {aiResult && !aiLoading && (
-        <Card>
-          <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 12 }}>Performance Director Report</T>
-          <div style={{ color: C.text, fontSize: 14, lineHeight: 1.7, fontFamily: "'Syne', sans-serif", whiteSpace: "pre-wrap" }}>{aiResult}</div>
-        </Card>
-      )}
-
-      {/* Hyrox Station Reference */}
-      <Card>
-        <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 12 }}>Your PB Station Splits</T>
-        {[
-          ["SkiErg", "3:52"], ["Sled Push", "1:25"], ["Sled Pull", "2:46"], ["Burpee BJ", "2:41"],
-          ["RowErg", "4:22"], ["Farmers", "1:21"], ["Lunges", "2:27"], ["Wall Balls", "3:27"], ["Roxzone", "5:11"],
-        ].map(([k, v]) => (
-          <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
-            <T size={13} color={C.light}>{k}</T>
-            <T size={13} mono weight="700" color={C.accent}>{v}</T>
-          </div>
-        ))}
-      </Card>
-
-      {/* Run split analysis */}
-      {workouts.length > 0 && (
-        <Card>
-          <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 12 }}>Compromised Run Index</T>
-          <T size={12} color={C.muted} style={{ display: "block", marginBottom: 8 }}>PB: Run1 3:52 → Run8 4:00 — drift index: +2.8%</T>
-          <T size={12} color={C.light} style={{ display: "block" }}>Log Hyrox sim splits to track your compromised run delta. Target: keep drift below 15% across all 8 runs.</T>
-        </Card>
-      )}
-    </div>
-  );
-
   // WEEK TAB
   const WeekTab = () => {
     const total = WEEK1_PLAN.length;
@@ -866,7 +758,6 @@ Be direct, data-first, no fluff. Use physiological principles. Max 400 words.`;
     { id: "WEEK",    icon: "☑", label: "WEEK" },
     { id: "LOG",     icon: "+", label: "LOG" },
     { id: "HISTORY", icon: "≡", label: "HISTORY" },
-    { id: "ANALYZE", icon: "◈", label: "ANALYZE" },
   ];
 
   return (
@@ -885,7 +776,6 @@ Be direct, data-first, no fluff. Use physiological principles. Max 400 words.`;
         {tab === "WEEK"    && <WeekTab />}
         {tab === "LOG"     && <LogTab />}
         {tab === "HISTORY" && <HistoryTab />}
-        {tab === "ANALYZE" && <AnalyzeTab />}
       </div>
 
       {/* Bottom nav */}
