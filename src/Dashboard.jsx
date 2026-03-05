@@ -271,9 +271,17 @@ export default function ArtyAthletics() {
       if (wk) setCompletedSessions(JSON.parse(wk.value));
     } catch {}
     try {
-      const hd = await window.storage.get(HYROX_DATA_KEY);
-      if (hd) {
-        setHyroxData(JSON.parse(hd.value));
+      let hyroxLoaded = null;
+      try {
+        const local = localStorage.getItem(HYROX_DATA_KEY);
+        if (local) hyroxLoaded = JSON.parse(local);
+      } catch {}
+      if (!hyroxLoaded) {
+        const hd = await window.storage.get(HYROX_DATA_KEY);
+        if (hd) hyroxLoaded = JSON.parse(hd.value);
+      }
+      if (hyroxLoaded) {
+        setHyroxData(hyroxLoaded);
         setSplitEditorVer(v => v + 1);
       }
     } catch {}
@@ -312,9 +320,11 @@ export default function ArtyAthletics() {
     }));
   }
   async function persistHyroxData(data) {
-    try { await window.storage.set(HYROX_DATA_KEY, JSON.stringify(data)); } catch {}
+    const json = JSON.stringify(data);
+    try { localStorage.setItem(HYROX_DATA_KEY, json); } catch {}
+    try { await window.storage.set(HYROX_DATA_KEY, json); } catch {}
   }
-  function saveHyroxEdits() {
+  async function saveHyroxEdits() {
     if (!splitTableRef.current) return;
     const next = {
       current: { ...hyroxData.current },
@@ -327,7 +337,8 @@ export default function ArtyAthletics() {
       if (v !== null) next[inp.dataset.series][inp.dataset.segment] = v;
     });
     setHyroxData(next);
-    persistHyroxData(next);
+    await persistHyroxData(next);
+    showToast("SPLITS SAVED ✓");
   }
 
   async function submitLog() {
