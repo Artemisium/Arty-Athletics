@@ -167,6 +167,7 @@ const WORKOUTS_KEY = "arty:workouts";
 const HRV_KEY = "arty:hrv";
 const MESO_KEY = "arty:mesocycle";
 const WEEK1_KEY = "arty:week1_complete";
+const HYROX_DATA_KEY = "arty:hyrox_data";
 
 const WEEK1_PLAN = [
   { id: "mon_run",      day: "MON", date: "Mar 3", type: "run",       title: "Easy Run",                        details: "30 min · HR cap 150 · pace 6:15–6:50/km · walk if HR drifts",                                                         coach: "Walk breaks are built in. Connective tissue reconditioning — no ego." },
@@ -215,6 +216,8 @@ export default function ArtyAthletics() {
   const [calcStations, setCalcStations] = useState(
     Object.fromEntries(HYROX_STATION_KEYS.map(k => [k, ""]))
   );
+  const splitTableRef    = useRef(null);
+  const [splitEditorVer, setSplitEditorVer] = useState(0);
 
   // Log form state
   const [logForm, setLogForm] = useState({
@@ -267,6 +270,10 @@ export default function ArtyAthletics() {
       const wk = await window.storage.get(WEEK1_KEY);
       if (wk) setCompletedSessions(JSON.parse(wk.value));
     } catch {}
+    try {
+      const hd = await window.storage.get(HYROX_DATA_KEY);
+      if (hd) setHyroxData(JSON.parse(hd.value));
+    } catch {}
     setLoaded(true);
   }
 
@@ -300,6 +307,24 @@ export default function ArtyAthletics() {
       ...prev,
       [seriesKey]: { ...prev[seriesKey], [segment]: seconds },
     }));
+  }
+  async function persistHyroxData(data) {
+    try { await window.storage.set(HYROX_DATA_KEY, JSON.stringify(data)); } catch {}
+  }
+  function saveHyroxEdits() {
+    if (!splitTableRef.current) return;
+    const next = {
+      current: { ...hyroxData.current },
+      maxPerf: { ...hyroxData.maxPerf },
+      target:  { ...hyroxData.target  },
+      elite:   { ...hyroxData.elite   },
+    };
+    splitTableRef.current.querySelectorAll("input[data-series]").forEach(inp => {
+      const v = parseMSS(inp.value);
+      if (v !== null) next[inp.dataset.series][inp.dataset.segment] = v;
+    });
+    setHyroxData(next);
+    persistHyroxData(next);
   }
 
   async function submitLog() {
@@ -954,7 +979,10 @@ export default function ArtyAthletics() {
                     dot={{ r: 2, fill: s.color, strokeWidth: 0 }} activeDot={{ r: 4, fill: s.color }} />
                 ) : null)}
                 <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 11, color: C.text }}
-                  formatter={(v, name) => [`${v}`, HYROX_SERIES_META.find(s => s.key === name)?.label || name]} />
+                  formatter={(v, name, props) => {
+                    const secs = hyroxData[name]?.[props.payload.metric];
+                    return [secs != null ? fmtMSS(secs) : `${v}`, HYROX_SERIES_META.find(s => s.key === name)?.label || name];
+                  }} />
               </RadarChart>
             </ResponsiveContainer>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 8, justifyContent: "center" }}>
@@ -1017,8 +1045,8 @@ export default function ArtyAthletics() {
 
         {/* Split Editor */}
         <Card style={{ marginTop: 12, marginBottom: 16 }}>
-          <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 10 }}>Split Editor · tap a cell to edit</T>
-          <div style={{ overflowX: "auto" }}>
+          <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 10 }}>Split Editor · edit cells then Save</T>
+          <div ref={splitTableRef} key={splitEditorVer} style={{ overflowX: "auto" }}>
             <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 340 }}>
               <thead>
                 <tr>
@@ -1039,18 +1067,12 @@ export default function ArtyAthletics() {
                     {HYROX_SERIES_META.map(s => (
                       <td key={s.key} style={{ padding: "2px 4px" }}>
                         <input
-                          key={`${s.key}-${label}-${hyroxData[s.key][label]}`}
+                          key={`${s.key}-${label}`}
                           type="text"
                           defaultValue={fmtMSS(hyroxData[s.key][label])}
                           onFocus={e => e.target.select()}
-                          onBlur={e => {
-                            const parsed = parseMSS(e.target.value);
-                            if (parsed !== null && parsed !== hyroxData[s.key][label]) {
-                              updateHyroxTime(s.key, label, parsed);
-                            } else {
-                              e.target.value = fmtMSS(hyroxData[s.key][label]);
-                            }
-                          }}
+                          data-series={s.key}
+                          data-segment={label}
                           style={{
                             background: "transparent",
                             border: "none",
@@ -1071,6 +1093,13 @@ export default function ArtyAthletics() {
               </tbody>
             </table>
           </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+            <button onClick={saveHyroxEdits} style={{
+              background: C.accent + "20", border: `1px solid ${C.accent}`,
+              borderRadius: 8, padding: "7px 18px", cursor: "pointer",
+              color: C.accent, fontSize: 11, fontFamily: "'Syne'", fontWeight: 700, letterSpacing: 0.5,
+            }}>Save ✓</button>
+          </div>
         </Card>
 
         {/* Singles Race Calculator */}
@@ -1089,8 +1118,8 @@ export default function ArtyAthletics() {
               {/* 10km TT */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 12, borderBottom: `1px solid ${C.border}` }}>
                 <T size={11} color={C.light} weight="700" style={{ flexShrink: 0, width: 70 }}>10 km TT</T>
-                <input type="text" placeholder="38:30" value={calcTT}
-                  onChange={e => setCalcTT(e.target.value)}
+                <input type="text" placeholder="38:30" defaultValue={calcTT}
+                  onBlur={e => setCalcTT(e.target.value)}
                   style={{ ...iStyle, width: 90 }} />
                 <T size={10} color={C.muted}>m:ss</T>
               </div>
@@ -1100,8 +1129,8 @@ export default function ArtyAthletics() {
                 {HYROX_STATION_KEYS.map(k => (
                   <div key={k} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <T size={10} color={C.muted} weight="700" style={{ width: 76, flexShrink: 0 }}>{STATION_LONG[k]}</T>
-                    <input type="text" placeholder="m:ss" value={calcStations[k]}
-                      onChange={e => setCalcStations(prev => ({ ...prev, [k]: e.target.value }))}
+                    <input type="text" placeholder="m:ss" defaultValue={calcStations[k]}
+                      onBlur={e => setCalcStations(prev => ({ ...prev, [k]: e.target.value }))}
                       style={iStyle} />
                   </div>
                 ))}
@@ -1158,7 +1187,12 @@ export default function ArtyAthletics() {
                     </table>
                   </div>
                   <button
-                    onClick={() => HYROX_LABELS.forEach(label => updateHyroxTime("maxPerf", label, calcResult[label]))}
+                    onClick={() => {
+                      const next = { ...hyroxData, maxPerf: { ...hyroxData.maxPerf, ...calcResult } };
+                      setHyroxData(next);
+                      persistHyroxData(next);
+                      setSplitEditorVer(v => v + 1);
+                    }}
                     style={{
                       marginTop: 10, width: "100%", background: C.accent + "20",
                       border: `1px solid ${C.accent}`, borderRadius: 8, padding: "8px 12px",
