@@ -91,30 +91,32 @@ const HYROX_SERIES_DATA = {
 };
 
 const HYROX_SERIES_META = [
-  { key:"current", label:"Current",  color:"#f0a500" },
-  { key:"maxPerf", label:"Max Perf", color:"#00d4aa" },
-  { key:"target",  label:"Target",   color:"#7c6af7" },
-  { key:"elite",   label:"2024 1st", color:"#ff6b6b" },
+  { key:"current", label:"Doubles Est", color:"#f0a500" },
+  { key:"maxPerf", label:"Max Perf",    color:"#00d4aa" },
+  { key:"target",  label:"Target",      color:"#7c6af7" },
+  { key:"elite",   label:"2025 10th",   color:"#ff6b6b" },
 ];
 
 function hyroxNorm(seconds, [floor, ceiling]) {
   return Math.max(0, Math.min(100, Math.round((floor - seconds) / (floor - ceiling) * 100)));
 }
 
-const HYROX_RADAR_DATA = HYROX_LABELS.map(k => ({
-  metric:  k,
-  current: hyroxNorm(HYROX_SERIES_DATA.current[k], HYROX_BOUNDS[k]),
-  maxPerf: hyroxNorm(HYROX_SERIES_DATA.maxPerf[k],  HYROX_BOUNDS[k]),
-  target:  hyroxNorm(HYROX_SERIES_DATA.target[k],   HYROX_BOUNDS[k]),
-  elite:   hyroxNorm(HYROX_SERIES_DATA.elite[k],    HYROX_BOUNDS[k]),
-}));
-
 function fmtHMS(s) {
   return `${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
 }
-const HYROX_TOTALS = Object.fromEntries(
-  Object.entries(HYROX_SERIES_DATA).map(([k,v]) => [k, fmtHMS(Object.values(v).reduce((a,b)=>a+b,0))])
-);
+function fmtMSS(s) {
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+function parseMSS(str) {
+  const parts = String(str).trim().split(":");
+  if (parts.length === 2) {
+    const m = parseInt(parts[0], 10);
+    const s = parseInt(parts[1], 10);
+    if (!isNaN(m) && !isNaN(s) && s < 60) return m * 60 + s;
+  }
+  const n = parseInt(str, 10);
+  return isNaN(n) ? null : n;
+}
 
 const fmt = {
   sec: (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`,
@@ -167,6 +169,12 @@ export default function ArtyAthletics() {
   const [completedSessions, setCompletedSessions] = useState([]);
   const [hyroxActive, setHyroxActive] = useState({ current:true, maxPerf:true, target:true, elite:true });
   const [hyroxView,   setHyroxView]   = useState("overlay");
+  const [hyroxData,   setHyroxData]   = useState(() => ({
+    current: { ...HYROX_SERIES_DATA.current },
+    maxPerf: { ...HYROX_SERIES_DATA.maxPerf },
+    target:  { ...HYROX_SERIES_DATA.target  },
+    elite:   { ...HYROX_SERIES_DATA.elite   },
+  }));
 
   // Log form state
   const [logForm, setLogForm] = useState({
@@ -246,6 +254,12 @@ export default function ArtyAthletics() {
 
   function toggleHyroxSeries(key) {
     setHyroxActive(prev => ({ ...prev, [key]: !prev[key] }));
+  }
+  function updateHyroxTime(seriesKey, segment, seconds) {
+    setHyroxData(prev => ({
+      ...prev,
+      [seriesKey]: { ...prev[seriesKey], [segment]: seconds },
+    }));
   }
 
   async function submitLog() {
@@ -836,6 +850,17 @@ export default function ArtyAthletics() {
       );
     };
 
+    const hyroxRadarData = HYROX_LABELS.map(k => ({
+      metric:  k,
+      current: hyroxNorm(hyroxData.current[k], HYROX_BOUNDS[k]),
+      maxPerf: hyroxNorm(hyroxData.maxPerf[k],  HYROX_BOUNDS[k]),
+      target:  hyroxNorm(hyroxData.target[k],   HYROX_BOUNDS[k]),
+      elite:   hyroxNorm(hyroxData.elite[k],    HYROX_BOUNDS[k]),
+    }));
+    const hyroxTotals = Object.fromEntries(
+      Object.entries(hyroxData).map(([k,v]) => [k, fmtHMS(Object.values(v).reduce((a,b)=>a+b,0))])
+    );
+
     return (
       <div className="fade-in" style={{ padding: "16px 16px 0" }}>
         {/* Header */}
@@ -879,7 +904,7 @@ export default function ArtyAthletics() {
           <Card>
             <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>Overlay — All Series</T>
             <ResponsiveContainer width="100%" height={300}>
-              <RadarChart data={HYROX_RADAR_DATA} margin={{ top: 16, right: 28, bottom: 16, left: 28 }}>
+              <RadarChart data={hyroxRadarData} margin={{ top: 16, right: 28, bottom: 16, left: 28 }}>
                 <PolarGrid stroke={C.border} />
                 <PolarAngleAxis dataKey="metric" tick={HyroxTick} />
                 <PolarRadiusAxis domain={[0,100]} tick={false} axisLine={false} />
@@ -918,7 +943,7 @@ export default function ArtyAthletics() {
                     <T size={10} color={s.color} weight="700" style={{ textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</T>
                   </div>
                   <ResponsiveContainer width="100%" height={180}>
-                    <RadarChart data={HYROX_RADAR_DATA} margin={{ top: 12, right: 20, bottom: 12, left: 20 }}>
+                    <RadarChart data={hyroxRadarData} margin={{ top: 12, right: 20, bottom: 12, left: 20 }}>
                       <PolarGrid stroke={C.border} />
                       <PolarAngleAxis dataKey="metric" tick={SmallTick} />
                       <PolarRadiusAxis domain={[0,100]} tick={false} axisLine={false} />
@@ -944,9 +969,67 @@ export default function ArtyAthletics() {
                 opacity: hyroxActive[s.key] ? 1 : 0.4, transition: "all 0.2s",
               }}>
                 <T size={9} color={hyroxActive[s.key] ? s.color : C.muted} weight="700" style={{ display: "block", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{s.label}</T>
-                <T size={12} color={hyroxActive[s.key] ? s.color : C.muted} mono weight="700" style={{ display: "block" }}>{HYROX_TOTALS[s.key]}</T>
+                <T size={12} color={hyroxActive[s.key] ? s.color : C.muted} mono weight="700" style={{ display: "block" }}>{hyroxTotals[s.key]}</T>
               </div>
             ))}
+          </div>
+        </Card>
+
+        {/* Split Editor */}
+        <Card style={{ marginTop: 12, marginBottom: 16 }}>
+          <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 10 }}>Split Editor · tap a cell to edit</T>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 340 }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: "4px 8px", textAlign: "left", width: 46 }}></th>
+                  {HYROX_SERIES_META.map(s => (
+                    <th key={s.key} style={{ padding: "4px 6px", textAlign: "center" }}>
+                      <T size={9} color={s.color} weight="700" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>{s.label}</T>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {HYROX_LABELS.map(label => (
+                  <tr key={label} style={{ borderTop: `1px solid ${C.border}` }}>
+                    <td style={{ padding: "4px 8px" }}>
+                      <T size={10} color={C.muted} weight="700" style={{ textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</T>
+                    </td>
+                    {HYROX_SERIES_META.map(s => (
+                      <td key={s.key} style={{ padding: "2px 4px" }}>
+                        <input
+                          key={`${s.key}-${label}-${hyroxData[s.key][label]}`}
+                          type="text"
+                          defaultValue={fmtMSS(hyroxData[s.key][label])}
+                          onFocus={e => e.target.select()}
+                          onBlur={e => {
+                            const parsed = parseMSS(e.target.value);
+                            if (parsed !== null && parsed !== hyroxData[s.key][label]) {
+                              updateHyroxTime(s.key, label, parsed);
+                            } else {
+                              e.target.value = fmtMSS(hyroxData[s.key][label]);
+                            }
+                          }}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            borderBottom: `1px solid ${C.border}`,
+                            color: s.color,
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: 13,
+                            width: "100%",
+                            textAlign: "center",
+                            padding: "4px 2px",
+                            outline: "none",
+                          }}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
       </div>
