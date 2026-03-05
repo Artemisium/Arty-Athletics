@@ -124,6 +124,36 @@ function parseMSS(str) {
   return isNaN(n) ? null : n;
 }
 
+const HYROX_STATION_KEYS = ["SKI","PUSH","PULL","BBJ","ROW","CARRY","LUNGE","WB"];
+const STATION_LONG = {
+  SKI:"Ski Erg", PUSH:"Sled Push", PULL:"Sled Pull", BBJ:"Burpee BJ",
+  ROW:"Row",     CARRY:"Farmer Carry", LUNGE:"Lunges",  WB:"Wall Balls",
+};
+// How much slower than fresh-max each station becomes mid-race (fatigue × position)
+const STATION_FATIGUE = {
+  SKI:1.15, PUSH:1.18, PULL:1.22, BBJ:1.25,
+  ROW:1.28, CARRY:1.30, LUNGE:1.33, WB:1.35,
+};
+// Per-run pacing multipliers relative to base 1 km (R1..R8)
+const RUN_FACTORS = [0.98, 1.02, 1.04, 1.05, 1.06, 1.05, 1.07, 1.04];
+
+function computeSinglesCalc(ttStr, stationStrs) {
+  const ttSecs = parseMSS(ttStr);
+  if (!ttSecs) return null;
+  const stn = {};
+  for (const k of HYROX_STATION_KEYS) {
+    const s = parseMSS(stationStrs[k]);
+    if (!s) return null;
+    stn[k] = s;
+  }
+  const splits = {};
+  for (const k of HYROX_STATION_KEYS) splits[k] = Math.round(stn[k] * STATION_FATIGUE[k]);
+  const base = Math.round((ttSecs / 10) * 1.10);
+  for (let i = 0; i < 8; i++) splits[`R${i + 1}`] = Math.round(base * RUN_FACTORS[i]);
+  splits.ROXZONE = 300;
+  return splits;
+}
+
 const fmt = {
   sec: (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`,
   pace: (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}/km`,
@@ -181,6 +211,10 @@ export default function ArtyAthletics() {
     target:  { ...HYROX_SERIES_DATA.target  },
     elite:   { ...HYROX_SERIES_DATA.elite   },
   }));
+  const [calcTT,       setCalcTT]       = useState("");
+  const [calcStations, setCalcStations] = useState(
+    Object.fromEntries(HYROX_STATION_KEYS.map(k => [k, ""]))
+  );
 
   // Log form state
   const [logForm, setLogForm] = useState({
@@ -1038,6 +1072,110 @@ export default function ArtyAthletics() {
             </table>
           </div>
         </Card>
+
+        {/* Singles Race Calculator */}
+        {(() => {
+          const calcResult = computeSinglesCalc(calcTT, calcStations);
+          const iStyle = {
+            background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6,
+            color: C.light, fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
+            padding: "5px 8px", outline: "none", textAlign: "center", width: "100%",
+          };
+          return (
+            <Card style={{ marginTop: 12, marginBottom: 16 }}>
+              <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 2 }}>Singles Race Calculator</T>
+              <T size={10} color={C.muted} style={{ display: "block", marginBottom: 12 }}>Fresh max · open weight · full distance → race estimate</T>
+
+              {/* 10km TT */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 12, borderBottom: `1px solid ${C.border}` }}>
+                <T size={11} color={C.light} weight="700" style={{ flexShrink: 0, width: 70 }}>10 km TT</T>
+                <input type="text" placeholder="38:30" value={calcTT}
+                  onChange={e => setCalcTT(e.target.value)}
+                  style={{ ...iStyle, width: 90 }} />
+                <T size={10} color={C.muted}>m:ss</T>
+              </div>
+
+              {/* Station inputs */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", marginBottom: 14 }}>
+                {HYROX_STATION_KEYS.map(k => (
+                  <div key={k} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <T size={10} color={C.muted} weight="700" style={{ width: 76, flexShrink: 0 }}>{STATION_LONG[k]}</T>
+                    <input type="text" placeholder="m:ss" value={calcStations[k]}
+                      onChange={e => setCalcStations(prev => ({ ...prev, [k]: e.target.value }))}
+                      style={iStyle} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Results */}
+              {calcResult ? (
+                <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+                  <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>Estimated Singles Splits</T>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 260 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ padding: "2px 8px", textAlign: "left" }}><T size={9} color={C.muted} weight="700">SEG</T></th>
+                          <th style={{ padding: "2px 6px", textAlign: "center" }}><T size={9} color={C.muted} weight="700">FRESH</T></th>
+                          <th style={{ padding: "2px 6px", textAlign: "center" }}><T size={9} color={C.muted} weight="700">RACE EST</T></th>
+                          <th style={{ padding: "2px 6px", textAlign: "center" }}><T size={9} color={C.muted} weight="700">+%</T></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {HYROX_LABELS.map((label, i) => {
+                          const isStation = i < 8;
+                          const fresh = isStation ? parseMSS(calcStations[label]) : null;
+                          const est = calcResult[label];
+                          const pct = fresh ? `+${Math.round((est / fresh - 1) * 100)}%` : null;
+                          return (
+                            <tr key={label} style={{ borderTop: `1px solid ${C.border}` }}>
+                              <td style={{ padding: "4px 8px" }}>
+                                <T size={10} color={isStation ? C.accent : C.light} weight="700" style={{ textTransform: "uppercase" }}>{label}</T>
+                              </td>
+                              <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                                <T size={10} color={C.muted} mono>{fresh ? fmtMSS(fresh) : "—"}</T>
+                              </td>
+                              <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                                <T size={12} color={C.light} mono weight="700">{fmtMSS(est)}</T>
+                              </td>
+                              <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                                <T size={9} color={C.muted}>{pct ?? ""}</T>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        <tr style={{ borderTop: `2px solid ${C.border}` }}>
+                          <td colSpan={2} style={{ padding: "6px 8px" }}>
+                            <T size={10} color={C.muted} weight="700">TOTAL</T>
+                          </td>
+                          <td colSpan={2} style={{ padding: "6px 8px", textAlign: "center" }}>
+                            <T size={14} color={C.accent} mono weight="700">
+                              {fmtHMS(HYROX_LABELS.reduce((sum, k) => sum + calcResult[k], 0))}
+                            </T>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <button
+                    onClick={() => HYROX_LABELS.forEach(label => updateHyroxTime("maxPerf", label, calcResult[label]))}
+                    style={{
+                      marginTop: 10, width: "100%", background: C.accent + "20",
+                      border: `1px solid ${C.accent}`, borderRadius: 8, padding: "8px 12px",
+                      cursor: "pointer", color: C.accent, fontSize: 11,
+                      fontFamily: "'Syne'", fontWeight: 700, letterSpacing: 0.5,
+                    }}>
+                    Apply to Max Perf ↗
+                  </button>
+                </div>
+              ) : (
+                <T size={10} color={C.muted} style={{ display: "block", textAlign: "center", padding: "8px 0" }}>
+                  Fill all fields above to see estimated splits
+                </T>
+              )}
+            </Card>
+          );
+        })()}
       </div>
     );
   };
