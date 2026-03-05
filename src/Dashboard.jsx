@@ -272,7 +272,10 @@ export default function ArtyAthletics() {
     } catch {}
     try {
       const hd = await window.storage.get(HYROX_DATA_KEY);
-      if (hd) setHyroxData(JSON.parse(hd.value));
+      if (hd) {
+        setHyroxData(JSON.parse(hd.value));
+        setSplitEditorVer(v => v + 1);
+      }
     } catch {}
     setLoaded(true);
   }
