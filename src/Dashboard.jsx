@@ -169,6 +169,38 @@ const MESO_KEY = "arty:mesocycle";
 const WEEK1_KEY = "arty:week1_complete";
 const HYROX_DATA_KEY = "arty:hyrox_data";
 const BODY_KEY = "arty:body_metrics";
+const CLIMB_KEY = "arty:climb_log";
+
+const BOULDER_GRADES = ["VB","V0","V1","V2","V3","V4","V5","V6","V7","V8","V9","V10"];
+const TR_GRADES = ["5.6","5.7","5.8","5.9","5.10a","5.10b","5.10c","5.10d","5.11a","5.11b","5.11c","5.11d","5.12a","5.12b","5.12c","5.12d","5.13a"];
+const GRADE_COLORS = {
+  VB:"#4caf50",V0:"#4caf50",V1:"#66bb6a",V2:"#81c784",V3:"#f0a500",V4:"#f0a500",V5:"#ff9800",
+  V6:"#ff6b6b",V7:"#ff4d4d",V8:"#e53935",V9:"#b71c1c",V10:"#880e4f",
+  "5.6":"#4caf50","5.7":"#66bb6a","5.8":"#81c784","5.9":"#a5d6a7",
+  "5.10a":"#f0a500","5.10b":"#f0a500","5.10c":"#ff9800","5.10d":"#ff9800",
+  "5.11a":"#ff6b6b","5.11b":"#ff6b6b","5.11c":"#ff4d4d","5.11d":"#ff4d4d",
+  "5.12a":"#e53935","5.12b":"#e53935","5.12c":"#b71c1c","5.12d":"#b71c1c","5.13a":"#880e4f",
+};
+
+const CLIMB_WORKOUTS = {
+  boulder: [
+    { name: "Pyramid Session", desc: "Warm up V0-V1 × 3 each. Then pyramid: V2, V3, V4, V5, V4, V3, V2. 3 attempts max per problem. Rest 2-3 min between harder grades.", focus: "Project-level power + volume", duration: "60-75 min" },
+    { name: "4×4 Endurance", desc: "Pick 4 problems at V2-V3 (2 grades below max). Climb all 4 back-to-back, no rest. Rest 4 min. Repeat 4 sets. Focus: pump tolerance.", focus: "Forearm endurance", duration: "45-60 min" },
+    { name: "Limit Bouldering", desc: "Warm up 20 min. Spend 45 min on 3-4 problems at V5-V6 (limit grade). Work individual moves, link sequences. 5 min rest between burns. Quality over quantity.", focus: "Max difficulty + recruitment", duration: "60-75 min" },
+    { name: "Volume Session", desc: "Flash as many V1-V4 problems as possible in 60 min. Aim for 25+ sends. Focus on silent feet, open-hand grip, precise footwork. No falling.", focus: "Movement quality + mileage", duration: "60 min" },
+  ],
+  toprope: [
+    { name: "Endurance Laps", desc: "Warm up on 5.8-5.9 × 2. Then climb 5.10a-5.10d continuously — up, lower, move to next route. 4-6 routes with minimal rest. Focus on breathing and efficient movement.", focus: "Route endurance + pump management", duration: "60-75 min" },
+    { name: "Project Burns", desc: "Warm up 15 min. Pick 2-3 routes at 5.11a-5.11b. Work each route 3 times with full rest (5 min). Note where you fall and rehearse moves.", focus: "Redpoint strength", duration: "60-75 min" },
+    { name: "Technique Pyramid", desc: "Climb 5.9, 5.10a, 5.10b, 5.10c, 5.10d, then back down. Focus on silent feet, no readjusting, smooth clips. Down-climb the last 5.9.", focus: "Technique under increasing difficulty", duration: "45-60 min" },
+  ],
+  fingerboard: [
+    { name: "Repeaters (Endurance)", desc: "Large edge (35mm): 7s hang / 3s rest × 6 reps = 1 set. 3 min rest. 4-5 sets. Bodyweight only. Half crimp grip. Focus on consistent form.", focus: "Tendon conditioning + capillarity", duration: "20-25 min", board: "Metolius Sim 3D — large rung" },
+    { name: "Max Hangs (Strength)", desc: "20mm edge: 10s hang, 3 min rest × 5 sets. Add weight until 10s is near-max. Start at bodyweight, progress +5lbs/week. Half crimp only.", focus: "Max finger strength", duration: "20-25 min", board: "Metolius Sim 3D — medium edge" },
+    { name: "Min Edge Protocol", desc: "Progressively smaller edges: 35mm × 3 hangs, 25mm × 3 hangs, 20mm × 3 hangs. 10s each, 2 min rest. Bodyweight. Stop if form breaks.", focus: "Contact strength on small holds", duration: "15-20 min", board: "Metolius Sim 3D — descending edges" },
+    { name: "Pocket & Pinch Work", desc: "2-finger pockets (middle+ring): 5s hang × 3 reps, 2 min rest. 3 sets. Then pinch block or Metolius pinch holds: 10s × 5 sets. Light weight.", focus: "Grip variety + weak position strength", duration: "15-20 min", board: "Metolius Sim 3D — pockets + pinches" },
+  ],
+};
 
 const BODY_GOALS = {
   weight: { current: 176, target: 171, unit: "lbs" },
@@ -213,6 +245,9 @@ export default function ArtyAthletics() {
   const [completedSessions, setCompletedSessions] = useState([]);
   const [bodyMetrics, setBodyMetrics] = useState([]);
   const [bodyForm, setBodyForm] = useState({ weight: "", bodyFat: "", muscleMass: "", bmi: "", water: "", notes: "" });
+  const [climbLog, setClimbLog] = useState([]);
+  const [climbSession, setClimbSession] = useState({ type: null, sends: {}, notes: "" }); // type: "boulder" | "toprope" | null
+  const [climbView, setClimbView] = useState("log"); // "log" | "workouts"
   const [garminData, setGarminData] = useState(null);
   const [garminStatus, setGarminStatus] = useState("idle"); // idle | loading | ok | not_configured | error
   const [hyroxActive, setHyroxActive] = useState({ current:true, maxPerf:true, target:true, elite:true });
@@ -287,6 +322,14 @@ export default function ArtyAthletics() {
       if (bm) setBodyMetrics(JSON.parse(bm.value));
     } catch {}
     try {
+      const cl = await window.storage.get(CLIMB_KEY);
+      if (cl) setClimbLog(JSON.parse(cl.value));
+    } catch {}
+    try {
+      const clLocal = localStorage.getItem(CLIMB_KEY);
+      if (clLocal) { const p = JSON.parse(clLocal); if (p.length) setClimbLog(p); }
+    } catch {}
+    try {
       const bmLocal = localStorage.getItem(BODY_KEY);
       if (bmLocal) {
         const parsed = JSON.parse(bmLocal);
@@ -344,6 +387,13 @@ export default function ArtyAthletics() {
     try { localStorage.setItem(BODY_KEY, json); } catch {}
     try { await window.storage.set(BODY_KEY, json); } catch {}
     setBodyMetrics(arr);
+  }
+
+  async function saveClimbLog(arr) {
+    const json = JSON.stringify(arr);
+    try { localStorage.setItem(CLIMB_KEY, json); } catch {}
+    try { await window.storage.set(CLIMB_KEY, json); } catch {}
+    setClimbLog(arr);
   }
 
   function showToast(msg, color = C.teal) {
@@ -1351,6 +1401,316 @@ export default function ArtyAthletics() {
     );
   };
 
+  // CLIMB TAB
+  const ClimbTab = () => {
+    const grades = climbSession.type === "boulder" ? BOULDER_GRADES : TR_GRADES;
+    const totalSends = Object.values(climbSession.sends).reduce((a, b) => a + b, 0);
+    const hardestSend = grades.slice().reverse().find(g => (climbSession.sends[g] || 0) > 0);
+
+    const sorted = [...climbLog].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const last30 = sorted.filter(s => (Date.now() - new Date(s.date)) < 30 * 86400000);
+    const boulderSessions = last30.filter(s => s.type === "boulder");
+    const trSessions = last30.filter(s => s.type === "toprope");
+
+    // Grade distribution for charts
+    const gradeStats = (sessions, gradeList) => {
+      const counts = {};
+      gradeList.forEach(g => counts[g] = 0);
+      sessions.forEach(s => Object.entries(s.sends || {}).forEach(([g, n]) => { if (counts[g] !== undefined) counts[g] += n; }));
+      return gradeList.map(g => ({ grade: g, count: counts[g] })).filter(d => d.count > 0);
+    };
+
+    async function submitClimb() {
+      if (totalSends === 0) { showToast("Log at least one send", C.danger); return; }
+      const entry = {
+        id: Date.now(),
+        date: new Date().toISOString(),
+        type: climbSession.type,
+        sends: { ...climbSession.sends },
+        totalSends,
+        hardest: hardestSend,
+        notes: climbSession.notes,
+      };
+      await saveClimbLog([...climbLog, entry]);
+      setClimbSession({ type: null, sends: {}, notes: "" });
+      showToast("CLIMB SESSION LOGGED ✓");
+    }
+
+    function addSend(grade) {
+      setClimbSession(prev => ({
+        ...prev,
+        sends: { ...prev.sends, [grade]: (prev.sends[grade] || 0) + 1 },
+      }));
+    }
+    function removeSend(grade) {
+      setClimbSession(prev => {
+        const n = (prev.sends[grade] || 0) - 1;
+        const next = { ...prev.sends };
+        if (n <= 0) delete next[grade]; else next[grade] = n;
+        return { ...prev, sends: next };
+      });
+    }
+
+    return (
+      <div className="fade-in" style={{ padding: "16px 16px 0" }}>
+        <div style={{ marginBottom: 14 }}>
+          <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block" }}>Climbing</T>
+          <T size={26} weight="800" color={C.accent} style={{ display: "block", fontFamily: "'Syne'" }}>CLIMB</T>
+          <T size={11} color={C.muted} style={{ display: "block" }}>V3–V5 Boulder · 5.10–5.11 Top Rope · Metolius Sim 3D</T>
+        </div>
+
+        {/* View toggle */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          {[["log","LOG SESSION"],["workouts","WORKOUTS"]].map(([v, label]) => (
+            <button key={v} onClick={() => setClimbView(v)} style={{
+              flex: 1, background: climbView === v ? C.accent + "20" : C.card,
+              border: `1px solid ${climbView === v ? C.accent : C.border}`,
+              borderRadius: 10, padding: "10px", cursor: "pointer",
+              color: climbView === v ? C.accent : C.muted, fontSize: 12,
+              fontFamily: "'Syne'", fontWeight: 700, letterSpacing: 1,
+            }}>{label}</button>
+          ))}
+        </div>
+
+        {climbView === "log" && (
+          <>
+            {/* Type selector */}
+            {!climbSession.type && (
+              <div className="slide-up" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                <button onClick={() => setClimbSession({ ...climbSession, type: "boulder" })} style={{
+                  background: C.card, border: `1px solid ${C.accent}40`, borderRadius: 12, padding: "20px 12px",
+                  cursor: "pointer", textAlign: "center",
+                }}>
+                  <span style={{ fontSize: 32, display: "block", marginBottom: 6 }}>🪨</span>
+                  <T size={14} weight="700" color={C.accent} style={{ textTransform: "uppercase" }}>Bouldering</T>
+                  <T size={10} color={C.muted} style={{ display: "block", marginTop: 4 }}>V-scale grades</T>
+                </button>
+                <button onClick={() => setClimbSession({ ...climbSession, type: "toprope" })} style={{
+                  background: C.card, border: `1px solid ${C.teal}40`, borderRadius: 12, padding: "20px 12px",
+                  cursor: "pointer", textAlign: "center",
+                }}>
+                  <span style={{ fontSize: 32, display: "block", marginBottom: 6 }}>🧗</span>
+                  <T size={14} weight="700" color={C.teal} style={{ textTransform: "uppercase" }}>Top Rope</T>
+                  <T size={10} color={C.muted} style={{ display: "block", marginTop: 4 }}>YDS grades</T>
+                </button>
+              </div>
+            )}
+
+            {/* Grade buttons */}
+            {climbSession.type && (
+              <div className="slide-up">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 22 }}>{climbSession.type === "boulder" ? "🪨" : "🧗"}</span>
+                    <T size={16} weight="700" color={climbSession.type === "boulder" ? C.accent : C.teal} style={{ textTransform: "uppercase" }}>
+                      {climbSession.type === "boulder" ? "Bouldering" : "Top Rope"}
+                    </T>
+                  </div>
+                  <button onClick={() => setClimbSession({ type: null, sends: {}, notes: "" })} style={{
+                    background: "none", border: `1px solid ${C.muted}40`, borderRadius: 8,
+                    padding: "4px 10px", cursor: "pointer", color: C.muted, fontSize: 11, fontFamily: "'Syne'",
+                  }}>Change</button>
+                </div>
+
+                <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>Tap grade to add send</T>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+                  {grades.map(g => {
+                    const count = climbSession.sends[g] || 0;
+                    const gc = GRADE_COLORS[g] || C.accent;
+                    return (
+                      <button key={g} onClick={() => addSend(g)} style={{
+                        position: "relative",
+                        background: count > 0 ? gc + "25" : C.card,
+                        border: `1px solid ${count > 0 ? gc : C.border}`,
+                        borderRadius: 8, padding: "10px 6px", cursor: "pointer",
+                        minWidth: climbSession.type === "boulder" ? 52 : 56,
+                        textAlign: "center", transition: "all 0.15s",
+                      }}>
+                        <T size={13} weight="700" color={count > 0 ? gc : C.light} mono style={{ display: "block" }}>{g}</T>
+                        {count > 0 && (
+                          <div style={{ position: "absolute", top: -6, right: -6, background: gc, color: "#000",
+                            width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 11, fontWeight: 800, fontFamily: "'JetBrains Mono'" }}>{count}</div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Current sends summary */}
+                {totalSends > 0 && (
+                  <Card>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <T size={11} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 2 }}>This Session</T>
+                      <T size={14} mono weight="700" color={C.accent}>{totalSends} sends</T>
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {grades.filter(g => climbSession.sends[g]).map(g => (
+                        <div key={g} style={{ display: "flex", alignItems: "center", gap: 4, background: (GRADE_COLORS[g] || C.accent) + "15",
+                          border: `1px solid ${(GRADE_COLORS[g] || C.accent)}30`, borderRadius: 8, padding: "6px 10px" }}>
+                          <T size={13} mono weight="700" color={GRADE_COLORS[g] || C.accent}>{g} × {climbSession.sends[g]}</T>
+                          <button onClick={(e) => { e.stopPropagation(); removeSend(g); }} style={{
+                            background: "none", border: "none", color: C.danger, cursor: "pointer",
+                            fontSize: 16, padding: "0 2px", lineHeight: 1,
+                          }}>−</button>
+                        </div>
+                      ))}
+                    </div>
+                    {hardestSend && (
+                      <T size={12} color={C.muted} style={{ display: "block", marginTop: 8 }}>Hardest: <T size={12} mono weight="700" color={GRADE_COLORS[hardestSend] || C.accent}>{hardestSend}</T></T>
+                    )}
+                  </Card>
+                )}
+
+                <div style={{ marginBottom: 12 }}>
+                  <T size={11} color={C.muted} style={{ display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Notes</T>
+                  <input type="text" placeholder="Felt strong on crimps, slopers still weak..." value={climbSession.notes}
+                    onChange={e => setClimbSession({ ...climbSession, notes: e.target.value })} />
+                </div>
+
+                <Btn onPress={submitClimb} full color={climbSession.type === "boulder" ? C.accent : C.teal}>SAVE SESSION ✓</Btn>
+              </div>
+            )}
+
+            {/* Grade distribution charts */}
+            {boulderSessions.length > 0 && (
+              <Card style={{ marginTop: 14 }}>
+                <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 10 }}>Boulder Sends — Last 30 Days</T>
+                <ResponsiveContainer width="100%" height={120}>
+                  <BarChart data={gradeStats(boulderSessions, BOULDER_GRADES)} margin={{ top: 0, right: 4, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="grade" tick={{ fontSize: 10, fill: C.muted }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 9, fill: C.muted }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <Bar dataKey="count" radius={[4, 4, 0, 0]}
+                      fill={C.accent}
+                      label={{ position: "top", fontSize: 10, fill: C.muted }} />
+                    <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.text }}
+                      formatter={(v) => [`${v} sends`]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+            )}
+
+            {trSessions.length > 0 && (
+              <Card style={{ marginTop: 10 }}>
+                <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 10 }}>Top Rope Sends — Last 30 Days</T>
+                <ResponsiveContainer width="100%" height={120}>
+                  <BarChart data={gradeStats(trSessions, TR_GRADES)} margin={{ top: 0, right: 4, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="grade" tick={{ fontSize: 9, fill: C.muted }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 9, fill: C.muted }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <Bar dataKey="count" radius={[4, 4, 0, 0]} fill={C.teal}
+                      label={{ position: "top", fontSize: 10, fill: C.muted }} />
+                    <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.text }}
+                      formatter={(v) => [`${v} sends`]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+            )}
+
+            {/* Session history */}
+            {sorted.length > 0 && (
+              <Card style={{ marginTop: 10 }}>
+                <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 10 }}>Recent Sessions</T>
+                {sorted.slice(0, 8).map(s => (
+                  <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 16 }}>{s.type === "boulder" ? "🪨" : "🧗"}</span>
+                      <div>
+                        <T size={12} weight="600" color={s.type === "boulder" ? C.accent : C.teal} style={{ textTransform: "uppercase" }}>{s.type === "boulder" ? "Boulder" : "Top Rope"}</T>
+                        <T size={10} color={C.muted} mono style={{ display: "block" }}>{new Date(s.date).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}</T>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <T size={13} mono weight="600" color={C.text}>{s.totalSends} sends</T>
+                      {s.hardest && <T size={12} mono weight="700" color={GRADE_COLORS[s.hardest] || C.accent} style={{ background: (GRADE_COLORS[s.hardest] || C.accent) + "15", padding: "2px 8px", borderRadius: 6 }}>{s.hardest}</T>}
+                      <button onClick={async () => {
+                        await saveClimbLog(climbLog.filter(x => x.id !== s.id));
+                        showToast("Deleted", C.danger);
+                      }} style={{ background: "none", border: "none", color: C.danger, cursor: "pointer", fontSize: 14, padding: "4px" }}>×</button>
+                    </div>
+                  </div>
+                ))}
+              </Card>
+            )}
+          </>
+        )}
+
+        {climbView === "workouts" && (
+          <>
+            {/* Bouldering workouts */}
+            <div style={{ marginBottom: 16 }}>
+              <T size={13} weight="800" color={C.accent} style={{ textTransform: "uppercase", letterSpacing: 2, display: "block", marginBottom: 10 }}>🪨 Bouldering</T>
+              {CLIMB_WORKOUTS.boulder.map((w, i) => (
+                <Card key={i}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                    <T size={14} weight="700" color={C.text}>{w.name}</T>
+                    <T size={10} mono color={C.muted} style={{ flexShrink: 0 }}>{w.duration}</T>
+                  </div>
+                  <T size={12} color={C.light} style={{ display: "block", lineHeight: 1.6, marginBottom: 6 }}>{w.desc}</T>
+                  <T size={10} color={C.accent} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1 }}>{w.focus}</T>
+                </Card>
+              ))}
+            </div>
+
+            {/* Top Rope workouts */}
+            <div style={{ marginBottom: 16 }}>
+              <T size={13} weight="800" color={C.teal} style={{ textTransform: "uppercase", letterSpacing: 2, display: "block", marginBottom: 10 }}>🧗 Top Rope</T>
+              {CLIMB_WORKOUTS.toprope.map((w, i) => (
+                <Card key={i}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                    <T size={14} weight="700" color={C.text}>{w.name}</T>
+                    <T size={10} mono color={C.muted} style={{ flexShrink: 0 }}>{w.duration}</T>
+                  </div>
+                  <T size={12} color={C.light} style={{ display: "block", lineHeight: 1.6, marginBottom: 6 }}>{w.desc}</T>
+                  <T size={10} color={C.teal} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1 }}>{w.focus}</T>
+                </Card>
+              ))}
+            </div>
+
+            {/* Fingerboard workouts */}
+            <div style={{ marginBottom: 16 }}>
+              <T size={13} weight="800" color={C.purple} style={{ textTransform: "uppercase", letterSpacing: 2, display: "block", marginBottom: 10 }}>🤏 Fingerboard — Metolius Sim 3D</T>
+              {CLIMB_WORKOUTS.fingerboard.map((w, i) => (
+                <Card key={i}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                    <T size={14} weight="700" color={C.text}>{w.name}</T>
+                    <T size={10} mono color={C.muted} style={{ flexShrink: 0 }}>{w.duration}</T>
+                  </div>
+                  <T size={12} color={C.light} style={{ display: "block", lineHeight: 1.6, marginBottom: 6 }}>{w.desc}</T>
+                  {w.board && <T size={10} color={C.muted} style={{ display: "block", marginBottom: 4, fontStyle: "italic" }}>{w.board}</T>}
+                  <T size={10} color={C.purple} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1 }}>{w.focus}</T>
+                </Card>
+              ))}
+            </div>
+
+            {/* Benchmarks */}
+            <Card accent>
+              <T size={11} color={C.accent} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 10 }}>Current Level & Benchmarks</T>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px" }}>
+                {[
+                  ["Boulder", "V3–V5"],
+                  ["Top Rope", "5.10–5.11"],
+                  ["Hangboard (20mm)", "BW × 5s"],
+                  ["Target Hang", "BW+20% × 5s"],
+                  ["Weighted Chin", "+65 lbs"],
+                  ["Weighted Pull", "+55 lbs"],
+                ].map(([k, v]) => (
+                  <div key={k} style={{ display: "flex", justifyContent: "space-between" }}>
+                    <T size={12} color={C.muted}>{k}</T>
+                    <T size={12} color={C.accent} mono weight="600">{v}</T>
+                  </div>
+                ))}
+              </div>
+              <T size={10} color={C.muted} style={{ display: "block", marginTop: 10, lineHeight: 1.5 }}>
+                To reach V6–V8: hang +20-30% BW on 20mm for 5s. Your pull strength (+65 chin) is already elite-tier — finger strength is the unlock.
+              </T>
+            </Card>
+          </>
+        )}
+      </div>
+    );
+  };
+
   // BODY TAB
   const BodyTab = () => {
     const sorted = [...bodyMetrics].sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -1582,6 +1942,7 @@ export default function ArtyAthletics() {
     { id: "HOME",    icon: "⌂", label: "HOME" },
     { id: "HYROX",   icon: "⬡", label: "HYROX" },
     { id: "LOG",     icon: "+", label: "LOG" },
+    { id: "CLIMB",   icon: "△", label: "CLIMB" },
     { id: "BODY",    icon: "◉", label: "BODY" },
     { id: "HISTORY", icon: "≡", label: "MORE" },
   ];
@@ -1602,6 +1963,7 @@ export default function ArtyAthletics() {
         {tab === "WEEK"    && <WeekTab />}
         {tab === "LOG"     && <LogTab />}
         {tab === "BODY"    && <BodyTab />}
+        {tab === "CLIMB"   && <ClimbTab />}
         {tab === "HISTORY" && <HistoryTab />}
         {tab === "HYROX"   && <HyroxTab />}
       </div>
