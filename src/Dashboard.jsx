@@ -1693,305 +1693,422 @@ export default function ArtyAthletics() {
   // BODY TAB
   // ─── VITALS TAB ──────────────────────────────────────────────────────────────
   const VitalsTab = () => {
-    const g = garminData || {};
+    // Demo data for when Garmin API isn't reachable (local dev / first load)
+    const DEMO = {
+      heartRate: { resting: 52, min: 48, max: 172 },
+      sleep: { duration: 7.4, quality: 82, deepSleep: 68, remSleep: 94 },
+      dailyStats: { steps: 9842, calories: 2680, restingHR: 52, activeMinutes: 74, stressLevel: 28 },
+      hrv: { lastNight: 62, weeklyAvg: 58, status: "BALANCED" },
+      activities: [
+        { id: 1, name: "Easy Run", type: "running", date: "2026-03-22T07:30:00", duration: 2460, distance: 6200, avgHR: 142, maxHR: 158, avgPace: 397, calories: 520, avgRunningCadence: 172, elevationGain: 34, trainingEffect: 2.3, anaerobicTE: 0.4 },
+        { id: 2, name: "Strength Training", type: "strength_training", date: "2026-03-21T17:00:00", duration: 3600, distance: 0, avgHR: 128, maxHR: 165, calories: 380, trainingEffect: 3.1, anaerobicTE: 2.1 },
+        { id: 3, name: "Zone 2 Run", type: "running", date: "2026-03-20T06:45:00", duration: 3300, distance: 8100, avgHR: 148, maxHR: 162, avgPace: 407, calories: 640, avgRunningCadence: 170, elevationGain: 52, trainingEffect: 2.8, anaerobicTE: 0.2 },
+        { id: 4, name: "Indoor Cycling", type: "indoor_cycling", date: "2026-03-19T12:00:00", duration: 2700, distance: 18000, avgHR: 138, maxHR: 155, calories: 420, trainingEffect: 2.5, anaerobicTE: 0.8 },
+        { id: 5, name: "Long Run", type: "running", date: "2026-03-18T07:00:00", duration: 5400, distance: 14200, avgHR: 146, maxHR: 168, avgPace: 380, calories: 1100, avgRunningCadence: 174, elevationGain: 87, trainingEffect: 3.8, anaerobicTE: 0.6 },
+      ],
+      syncedAt: new Date().toISOString(),
+    };
+    const isLive = garminStatus === "ok" && garminData;
+    const g = isLive ? garminData : DEMO;
     const hr = g.heartRate || {};
     const sleep = g.sleep || {};
     const daily = g.dailyStats || {};
     const hrv = g.hrv || {};
     const acts = (g.activities || []).slice(0, 20);
-    const isLive = garminStatus === "ok" && garminData;
     const syncTime = g.syncedAt ? new Date(g.syncedAt).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" }) : null;
 
-    // Body metrics for body map display
+    // Body metrics
     const sortedBody = [...bodyMetrics].sort((a, b) => new Date(a.date) - new Date(b.date));
     const lastBody = sortedBody[sortedBody.length - 1];
-    const leanMass = lastBody?.weight && lastBody?.bodyFat ? +(lastBody.weight * (1 - lastBody.bodyFat / 100)).toFixed(1) : null;
+    const leanMass = lastBody?.weight && lastBody?.bodyFat ? +(lastBody.weight * (1 - lastBody.bodyFat / 100)).toFixed(1) : 153;
+    const bw = lastBody?.weight || PROFILE.weight;
+    const bf = lastBody?.bodyFat || 13.2;
 
-    // HRV trend for sparkline
-    const hrvTrend = hrvLog.slice(-14).map((h, i) => ({ i, v: h.value }));
+    // HRV trend
+    const hrvTrend = hrvLog.length > 1 ? hrvLog.slice(-14).map((h, i) => ({ i, v: h.value })) :
+      [48, 55, 52, 60, 58, 63, 56, 61, 59, 64, 58, 62, 60, 65].map((v, i) => ({ i, v }));
 
-    // Readiness score (composite of HRV, sleep, stress, resting HR)
-    const readinessFactors = [];
-    if (hrv.lastNight) readinessFactors.push(Math.min(100, Math.round((hrv.lastNight / 80) * 100)));
-    if (sleep.quality) readinessFactors.push(sleep.quality);
-    if (daily.stressLevel) readinessFactors.push(Math.max(0, 100 - daily.stressLevel));
-    if (hr.resting) readinessFactors.push(Math.min(100, Math.round(((80 - hr.resting) / 30) * 100)));
-    const readiness = readinessFactors.length ? Math.round(readinessFactors.reduce((a, b) => a + b, 0) / readinessFactors.length) : null;
-    const readinessColor = readiness >= 75 ? C.teal : readiness >= 50 ? C.accent : C.danger;
+    // Readiness score
+    const rhr = hr.resting || 52;
+    const hrvVal = hrv.lastNight || lastHrv || 62;
+    const sleepQ = sleep.quality || 82;
+    const stressVal = daily.stressLevel || 28;
+    const rFactors = [
+      Math.min(100, Math.round((hrvVal / 80) * 100)),
+      sleepQ,
+      Math.max(0, 100 - stressVal),
+      Math.min(100, Math.round(((80 - rhr) / 30) * 100)),
+    ];
+    const readiness = Math.round(rFactors.reduce((a, b) => a + b, 0) / rFactors.length);
+    const rC = readiness >= 75 ? C.teal : readiness >= 50 ? C.accent : C.danger;
 
-    // Activity type icons
-    const actIcon = (type) => {
-      const map = { running: "🏃", cycling: "🚴", swimming: "🏊", strength_training: "🏋", walking: "🚶", hiking: "⛰", indoor_cycling: "🚴", treadmill_running: "🏃", elliptical: "🏃" };
-      return map[type] || "🏟";
-    };
-    const fmtDuration = (sec) => { const m = Math.floor(sec / 60); const h = Math.floor(m / 60); return h > 0 ? `${h}h ${m % 60}m` : `${m}m`; };
-    const fmtPace = (secPerKm) => secPerKm ? `${Math.floor(secPerKm / 60)}:${String(secPerKm % 60).padStart(2, "0")}` : null;
+    // Activity helpers
+    const actIcon = (type) => ({ running: "🏃", cycling: "🚴", swimming: "🏊", strength_training: "🏋", walking: "🚶", hiking: "⛰", indoor_cycling: "🚴", treadmill_running: "🏃" }[type] || "🏟");
+    const fmtDur = (s) => { const m = Math.floor(s / 60); const h = Math.floor(m / 60); return h > 0 ? `${h}h ${m % 60}m` : `${m}m`; };
+    const fmtPace = (s) => s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : null;
 
-    // ─── SUB-VIEW: BODY MAP ───────────────────────────────────────────────────
+    // Animated pulse phase for body map (using CSS animations via inline keyframes)
+    const glowKeyframes = `@keyframes vitalPulse { 0%,100% { opacity: 0.3; } 50% { opacity: 0.8; } }
+      @keyframes heartBeat { 0%,100% { r: 5; } 25% { r: 8; } 50% { r: 5; } 75% { r: 7; } }
+      @keyframes scanLine { 0% { transform: translateY(-180px); } 100% { transform: translateY(180px); } }
+      @keyframes dataFlow { 0% { stroke-dashoffset: 20; } 100% { stroke-dashoffset: 0; } }
+      @keyframes ringPulse { 0%,100% { opacity: 0.15; transform: scale(1); } 50% { opacity: 0.35; transform: scale(1.08); } }`;
+
+    // ─── SUB-VIEW: BODY MAP (high-tech) ───────────────────────────────────────
     const BodyMapView = () => (
-      <div style={{ position: "relative", minHeight: 520 }}>
-        {/* Readiness arc at top */}
-        {readiness !== null && (
-          <div style={{ textAlign: "center", marginBottom: 8 }}>
-            <svg width="160" height="90" viewBox="0 0 160 90" style={{ display: "block", margin: "0 auto" }}>
-              <path d="M 15 80 A 65 65 0 0 1 145 80" fill="none" stroke={C.border} strokeWidth="8" strokeLinecap="round" />
-              <path d="M 15 80 A 65 65 0 0 1 145 80" fill="none" stroke={readinessColor} strokeWidth="8" strokeLinecap="round"
-                strokeDasharray={`${(readiness / 100) * 204} 204`} style={{ transition: "stroke-dasharray 0.8s ease" }} />
-              <text x="80" y="65" textAnchor="middle" style={{ fontFamily: "'JetBrains Mono'", fontSize: 28, fontWeight: 800, fill: readinessColor }}>{readiness}</text>
-              <text x="80" y="82" textAnchor="middle" style={{ fontFamily: "'Syne'", fontSize: 9, fontWeight: 600, fill: C.muted, letterSpacing: 2, textTransform: "uppercase" }}>READINESS</text>
-            </svg>
-          </div>
-        )}
+      <div style={{ position: "relative" }}>
+        <style>{glowKeyframes}</style>
 
-        {/* Body diagram with stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 1fr", gap: 0, alignItems: "center" }}>
-          {/* LEFT STATS — Heart, Lungs, Sleep */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "flex-end", paddingRight: 8 }}>
-            <div style={{ textAlign: "right" }}>
-              <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block" }}>Heart Rate</T>
-              <T size={24} mono weight="800" color={C.danger} style={{ display: "block", lineHeight: 1.1 }}>{hr.resting || "—"}</T>
-              <T size={9} color={C.muted}>resting bpm</T>
-              {hr.max && <T size={9} color={C.muted} mono style={{ display: "block" }}>max {hr.max}</T>}
+        {/* Readiness Arc — larger, more detailed */}
+        <div style={{ textAlign: "center", marginBottom: 4 }}>
+          <svg width="200" height="110" viewBox="0 0 200 110" style={{ display: "block", margin: "0 auto" }}>
+            {/* Background ring segments */}
+            <path d="M 20 95 A 80 80 0 0 1 180 95" fill="none" stroke={C.border} strokeWidth="4" strokeLinecap="round" opacity="0.3" />
+            <path d="M 20 95 A 80 80 0 0 1 180 95" fill="none" stroke={C.border} strokeWidth="10" strokeLinecap="round" opacity="0.08" />
+            {/* Active arc */}
+            <path d="M 20 95 A 80 80 0 0 1 180 95" fill="none" stroke={rC} strokeWidth="5" strokeLinecap="round"
+              strokeDasharray={`${(readiness / 100) * 251} 251`} style={{ transition: "stroke-dasharray 1s ease", filter: `drop-shadow(0 0 6px ${rC})` }} />
+            {/* Tick marks */}
+            {[0, 25, 50, 75, 100].map(p => {
+              const a = Math.PI - (p / 100) * Math.PI;
+              const x1 = 100 + 85 * Math.cos(a), y1 = 95 - 85 * Math.sin(a);
+              const x2 = 100 + 78 * Math.cos(a), y2 = 95 - 78 * Math.sin(a);
+              return <line key={p} x1={x1} y1={y1} x2={x2} y2={y2} stroke={C.muted} strokeWidth="1" opacity="0.5" />;
+            })}
+            <text x="100" y="72" textAnchor="middle" style={{ fontFamily: "'JetBrains Mono'", fontSize: 36, fontWeight: 800, fill: rC, filter: `drop-shadow(0 0 8px ${rC}60)` }}>{readiness}</text>
+            <text x="100" y="92" textAnchor="middle" style={{ fontFamily: "'Syne'", fontSize: 10, fontWeight: 700, fill: C.muted, letterSpacing: 3 }}>READINESS</text>
+            <text x="100" y="106" textAnchor="middle" style={{ fontFamily: "'JetBrains Mono'", fontSize: 8, fontWeight: 600, fill: rC, letterSpacing: 1 }}>
+              {readiness >= 75 ? "▲ OPTIMAL" : readiness >= 50 ? "● MODERATE" : "▼ RECOVER"}
+            </text>
+          </svg>
+        </div>
+
+        {/* Body diagram with stats — 3 column layout */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 1fr", gap: 0, alignItems: "start", minHeight: 400 }}>
+          {/* LEFT STATS */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end", paddingRight: 4, paddingTop: 20 }}>
+            {/* Heart Rate */}
+            <div style={{ background: C.danger + "08", border: `1px solid ${C.danger}20`, borderRadius: 10, padding: "8px 10px", textAlign: "right", width: "100%" }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                <T size={8} color={C.danger} weight="700" style={{ letterSpacing: 1.5, textTransform: "uppercase" }}>HEART</T>
+                <div style={{ width: 6, height: 6, borderRadius: 3, background: C.danger, animation: "vitalPulse 1.2s ease-in-out infinite" }} />
+              </div>
+              <T size={26} mono weight="800" color={C.danger} style={{ display: "block", lineHeight: 1, filter: `drop-shadow(0 0 4px ${C.danger}40)` }}>{rhr}</T>
+              <T size={8} color={C.muted} mono>bpm resting</T>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 3 }}>
+                <T size={8} color={C.muted} mono>min {hr.min || 48}</T>
+                <T size={8} color={C.danger} mono>max {hr.max || 172}</T>
+              </div>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block" }}>HRV</T>
-              <T size={24} mono weight="800" color={C.teal} style={{ display: "block", lineHeight: 1.1 }}>{hrv.lastNight || lastHrv || "—"}</T>
-              <T size={9} color={C.muted}>ms last night</T>
-              {hrv.status && <T size={9} color={C.teal} mono style={{ display: "block" }}>{hrv.status}</T>}
+            {/* HRV */}
+            <div style={{ background: C.teal + "08", border: `1px solid ${C.teal}20`, borderRadius: 10, padding: "8px 10px", textAlign: "right", width: "100%" }}>
+              <T size={8} color={C.teal} weight="700" style={{ letterSpacing: 1.5, textTransform: "uppercase", display: "block", marginBottom: 2 }}>HRV</T>
+              <T size={26} mono weight="800" color={C.teal} style={{ display: "block", lineHeight: 1, filter: `drop-shadow(0 0 4px ${C.teal}40)` }}>{hrvVal}</T>
+              <T size={8} color={C.muted} mono>ms last night</T>
+              <T size={8} color={C.teal} mono style={{ display: "block" }}>{hrv.status || "BALANCED"}</T>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block" }}>Sleep</T>
-              <T size={24} mono weight="800" color={C.purple} style={{ display: "block", lineHeight: 1.1 }}>{sleep.quality || "—"}</T>
-              <T size={9} color={C.muted}>score</T>
-              {sleep.duration && <T size={9} color={C.muted} mono style={{ display: "block" }}>{sleep.duration}h total</T>}
+            {/* Sleep */}
+            <div style={{ background: C.purple + "08", border: `1px solid ${C.purple}20`, borderRadius: 10, padding: "8px 10px", textAlign: "right", width: "100%" }}>
+              <T size={8} color={C.purple} weight="700" style={{ letterSpacing: 1.5, textTransform: "uppercase", display: "block", marginBottom: 2 }}>SLEEP</T>
+              <T size={26} mono weight="800" color={C.purple} style={{ display: "block", lineHeight: 1, filter: `drop-shadow(0 0 4px ${C.purple}40)` }}>{sleepQ}</T>
+              <T size={8} color={C.muted} mono>score · {sleep.duration || 7.4}h</T>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 2 }}>
+                <T size={7} color={C.muted} mono>deep {sleep.deepSleep || 68}m</T>
+                <T size={7} color={C.muted} mono>rem {sleep.remSleep || 94}m</T>
+              </div>
+            </div>
+            {/* Stress */}
+            <div style={{ background: (stressVal > 50 ? C.warn : C.teal) + "08", border: `1px solid ${(stressVal > 50 ? C.warn : C.teal)}20`, borderRadius: 10, padding: "8px 10px", textAlign: "right", width: "100%" }}>
+              <T size={8} color={stressVal > 50 ? C.warn : C.teal} weight="700" style={{ letterSpacing: 1.5, textTransform: "uppercase", display: "block", marginBottom: 2 }}>STRESS</T>
+              <T size={26} mono weight="800" color={stressVal > 50 ? C.warn : C.teal} style={{ display: "block", lineHeight: 1 }}>{stressVal}</T>
+              <T size={8} color={C.muted} mono>{stressVal <= 25 ? "very low" : stressVal <= 50 ? "low" : stressVal <= 75 ? "medium" : "high"}</T>
             </div>
           </div>
 
-          {/* CENTER — Body SVG */}
-          <div style={{ display: "flex", justifyContent: "center" }}>
-            <svg width="120" height="340" viewBox="0 0 120 340" style={{ filter: `drop-shadow(0 0 20px ${readinessColor || C.accent}30)` }}>
+          {/* CENTER — High-tech Body SVG */}
+          <div style={{ display: "flex", justifyContent: "center", position: "relative" }}>
+            <svg width="160" height="400" viewBox="0 0 160 400" style={{ filter: `drop-shadow(0 0 30px ${rC}20)` }}>
+              <defs>
+                <linearGradient id="bodyGlow" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={C.accent} stopOpacity="0.15" />
+                  <stop offset="50%" stopColor={rC} stopOpacity="0.08" />
+                  <stop offset="100%" stopColor={C.purple} stopOpacity="0.15" />
+                </linearGradient>
+                <linearGradient id="scanGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={rC} stopOpacity="0" />
+                  <stop offset="50%" stopColor={rC} stopOpacity="0.4" />
+                  <stop offset="100%" stopColor={rC} stopOpacity="0" />
+                </linearGradient>
+                <filter id="neonGlow">
+                  <feGaussianBlur stdDeviation="2" result="blur" />
+                  <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                </filter>
+                <clipPath id="bodyClip">
+                  <ellipse cx="80" cy="32" rx="20" ry="24" />
+                  <rect x="68" y="56" width="24" height="14" />
+                  <path d="M 38 72 Q 32 76 30 100 Q 27 155 32 195 Q 38 208 50 210 L 56 210 Q 60 207 64 198 L 80 194 L 96 198 Q 100 207 104 210 L 110 210 Q 122 208 128 195 Q 133 155 130 100 Q 128 76 122 72 Z" />
+                  <path d="M 30 80 Q 18 90 12 125 Q 6 155 4 180 Q 2 200 8 210 Q 10 215 14 210" />
+                  <path d="M 130 80 Q 142 90 148 125 Q 154 155 156 180 Q 158 200 152 210 Q 150 215 146 210" />
+                  <path d="M 50 210 Q 46 250 44 295 Q 42 330 38 355 Q 36 370 32 385" />
+                  <path d="M 110 210 Q 114 250 116 295 Q 118 330 122 355 Q 124 370 128 385" />
+                </clipPath>
+              </defs>
+
+              {/* Grid background */}
+              {Array.from({ length: 20 }, (_, i) => (
+                <line key={`hg${i}`} x1="0" y1={i * 20} x2="160" y2={i * 20} stroke={C.border} strokeWidth="0.3" opacity="0.2" />
+              ))}
+              {Array.from({ length: 8 }, (_, i) => (
+                <line key={`vg${i}`} x1={i * 20} y1="0" x2={i * 20} y2="400" stroke={C.border} strokeWidth="0.3" opacity="0.2" />
+              ))}
+
+              {/* Scanning line effect */}
+              <rect x="0" y="190" width="160" height="20" fill="url(#scanGrad)" clipPath="url(#bodyClip)" opacity="0.6">
+                <animateTransform attributeName="transform" type="translate" values="0 -200; 0 200" dur="3s" repeatCount="indefinite" />
+              </rect>
+
+              {/* Outer body glow */}
+              <ellipse cx="80" cy="32" rx="22" ry="26" fill="none" stroke={C.accent} strokeWidth="0.5" opacity="0.15" />
+              <path d="M 36 72 Q 28 78 26 100 Q 22 155 28 200 Q 34 214 50 216 L 56 216 Q 62 212 66 200 L 80 196 L 94 200 Q 98 212 104 216 L 110 216 Q 126 214 132 200 Q 138 155 134 100 Q 132 78 124 72 Z"
+                fill="none" stroke={C.accent} strokeWidth="0.5" opacity="0.1" />
+
+              {/* Main body outline */}
               {/* Head */}
-              <ellipse cx="60" cy="28" rx="18" ry="22" fill="none" stroke={C.accent} strokeWidth="1.5" opacity="0.7" />
+              <ellipse cx="80" cy="32" rx="20" ry="24" fill="url(#bodyGlow)" stroke={C.accent} strokeWidth="1.2" opacity="0.8" filter="url(#neonGlow)" />
               {/* Neck */}
-              <line x1="60" y1="50" x2="60" y2="62" stroke={C.accent} strokeWidth="1.5" opacity="0.6" />
+              <rect x="72" y="56" width="16" height="14" rx="3" fill="url(#bodyGlow)" stroke={C.accent} strokeWidth="0.8" opacity="0.6" />
               {/* Torso */}
-              <path d="M 35 65 Q 30 68 28 90 Q 25 140 30 175 Q 35 185 42 188 L 48 188 Q 52 186 55 178 L 60 175 L 65 178 Q 68 186 72 188 L 78 188 Q 85 185 90 175 Q 95 140 92 90 Q 90 68 85 65 Z"
-                fill={`${readinessColor || C.accent}08`} stroke={C.accent} strokeWidth="1.5" opacity="0.7" />
-              {/* Heart indicator */}
-              <circle cx="52" cy="95" r="6" fill={C.danger + "30"} stroke={C.danger} strokeWidth="1" opacity="0.8">
-                <animate attributeName="r" values="5;7;5" dur="1.2s" repeatCount="indefinite" />
-              </circle>
+              <path d="M 38 72 Q 32 76 30 100 Q 27 155 32 195 Q 38 208 50 210 L 56 210 Q 60 207 64 198 L 80 194 L 96 198 Q 100 207 104 210 L 110 210 Q 122 208 128 195 Q 133 155 130 100 Q 128 76 122 72 Z"
+                fill="url(#bodyGlow)" stroke={C.accent} strokeWidth="1.2" opacity="0.7" filter="url(#neonGlow)" />
               {/* Left arm */}
-              <path d="M 28 72 Q 18 80 12 110 Q 8 135 6 155 Q 4 170 8 180" fill="none" stroke={C.accent} strokeWidth="1.5" opacity="0.5" />
+              <path d="M 30 80 Q 18 90 12 125 Q 6 155 4 180 Q 2 200 8 210" fill="none" stroke={C.accent} strokeWidth="1.2" opacity="0.5" filter="url(#neonGlow)" />
+              <circle cx="8" cy="212" r="5" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.3" />
               {/* Right arm */}
-              <path d="M 92 72 Q 102 80 108 110 Q 112 135 114 155 Q 116 170 112 180" fill="none" stroke={C.accent} strokeWidth="1.5" opacity="0.5" />
+              <path d="M 130 80 Q 142 90 148 125 Q 154 155 156 180 Q 158 200 152 210" fill="none" stroke={C.accent} strokeWidth="1.2" opacity="0.5" filter="url(#neonGlow)" />
+              <circle cx="152" cy="212" r="5" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.3" />
               {/* Left leg */}
-              <path d="M 42 188 Q 38 220 36 260 Q 34 290 32 310 Q 31 325 28 335" fill="none" stroke={C.accent} strokeWidth="1.5" opacity="0.5" />
+              <path d="M 50 210 Q 46 250 44 295 Q 42 330 38 355 Q 36 370 32 385" fill="none" stroke={C.accent} strokeWidth="1.2" opacity="0.5" filter="url(#neonGlow)" />
               {/* Right leg */}
-              <path d="M 78 188 Q 82 220 84 260 Q 86 290 88 310 Q 89 325 92 335" fill="none" stroke={C.accent} strokeWidth="1.5" opacity="0.5" />
-              {/* Spine line (subtle) */}
-              <line x1="60" y1="65" x2="60" y2="188" stroke={C.border} strokeWidth="0.5" strokeDasharray="3 3" opacity="0.4" />
-              {/* VO2 lungs area */}
-              <ellipse cx="47" cy="110" rx="10" ry="15" fill={C.teal + "10"} stroke={C.teal} strokeWidth="0.5" opacity="0.4" />
-              <ellipse cx="73" cy="110" rx="10" ry="15" fill={C.teal + "10"} stroke={C.teal} strokeWidth="0.5" opacity="0.4" />
-              {/* Core highlight */}
-              <rect x="42" y="140" width="36" height="35" rx="8" fill={C.purple + "08"} stroke={C.purple} strokeWidth="0.5" opacity="0.3" />
-              {/* Muscle groups — shoulders */}
-              <circle cx="26" cy="75" r="8" fill={C.accent + "08"} stroke={C.accent} strokeWidth="0.5" opacity="0.3" />
-              <circle cx="94" cy="75" r="8" fill={C.accent + "08"} stroke={C.accent} strokeWidth="0.5" opacity="0.3" />
-              {/* Quad highlights */}
-              <ellipse cx="42" cy="230" rx="9" ry="25" fill={C.accent + "08"} stroke={C.accent} strokeWidth="0.5" opacity="0.3" />
-              <ellipse cx="78" cy="230" rx="9" ry="25" fill={C.accent + "08"} stroke={C.accent} strokeWidth="0.5" opacity="0.3" />
+              <path d="M 110 210 Q 114 250 116 295 Q 118 330 122 355 Q 124 370 128 385" fill="none" stroke={C.accent} strokeWidth="1.2" opacity="0.5" filter="url(#neonGlow)" />
+
+              {/* Heart — pulsing */}
+              <circle cx="72" cy="108" r="6" fill={C.danger + "40"} stroke={C.danger} strokeWidth="1.5" filter="url(#neonGlow)">
+                <animate attributeName="r" values="5;8;5;7;5" dur="1s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="72" cy="108" r="12" fill="none" stroke={C.danger} strokeWidth="0.5" opacity="0.2">
+                <animate attributeName="r" values="10;16;10" dur="1s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.3;0;0.3" dur="1s" repeatCount="indefinite" />
+              </circle>
+
+              {/* Lungs */}
+              <ellipse cx="58" cy="125" rx="12" ry="18" fill={C.teal + "08"} stroke={C.teal} strokeWidth="0.8" opacity="0.5" strokeDasharray="3 2">
+                <animate attributeName="ry" values="17;19;17" dur="3s" repeatCount="indefinite" />
+              </ellipse>
+              <ellipse cx="102" cy="125" rx="12" ry="18" fill={C.teal + "08"} stroke={C.teal} strokeWidth="0.8" opacity="0.5" strokeDasharray="3 2">
+                <animate attributeName="ry" values="17;19;17" dur="3s" repeatCount="indefinite" />
+              </ellipse>
+
+              {/* Core / abs */}
+              <rect x="55" y="158" width="50" height="38" rx="10" fill={C.purple + "06"} stroke={C.purple} strokeWidth="0.6" opacity="0.4" />
+              {[168, 178, 188].map(y => (
+                <line key={y} x1="62" y1={y} x2="98" y2={y} stroke={C.purple} strokeWidth="0.3" opacity="0.3" />
+              ))}
+
+              {/* Shoulder joints */}
+              <circle cx="32" cy="78" r="6" fill={C.accent + "10"} stroke={C.accent} strokeWidth="0.6" opacity="0.4" />
+              <circle cx="128" cy="78" r="6" fill={C.accent + "10"} stroke={C.accent} strokeWidth="0.6" opacity="0.4" />
+
+              {/* Quad muscles */}
+              <ellipse cx="50" cy="255" rx="11" ry="30" fill={C.accent + "06"} stroke={C.accent} strokeWidth="0.6" opacity="0.3" />
+              <ellipse cx="110" cy="255" rx="11" ry="30" fill={C.accent + "06"} stroke={C.accent} strokeWidth="0.6" opacity="0.3" />
+
+              {/* Data flow lines (animated dashes) */}
+              <line x1="72" y1="108" x2="0" y2="108" stroke={C.danger} strokeWidth="0.5" strokeDasharray="4 4" opacity="0.3">
+                <animate attributeName="stroke-dashoffset" values="20;0" dur="1.5s" repeatCount="indefinite" />
+              </line>
+              <line x1="58" y1="125" x2="0" y2="155" stroke={C.teal} strokeWidth="0.5" strokeDasharray="4 4" opacity="0.3">
+                <animate attributeName="stroke-dashoffset" values="20;0" dur="1.5s" repeatCount="indefinite" />
+              </line>
+              <line x1="102" y1="125" x2="160" y2="100" stroke={C.accent} strokeWidth="0.5" strokeDasharray="4 4" opacity="0.2">
+                <animate attributeName="stroke-dashoffset" values="20;0" dur="2s" repeatCount="indefinite" />
+              </line>
+              <line x1="128" y1="195" x2="160" y2="195" stroke={C.purple} strokeWidth="0.5" strokeDasharray="4 4" opacity="0.2">
+                <animate attributeName="stroke-dashoffset" values="20;0" dur="2s" repeatCount="indefinite" />
+              </line>
+
+              {/* Spine — data backbone */}
+              <line x1="80" y1="72" x2="80" y2="210" stroke={C.accent} strokeWidth="0.6" strokeDasharray="2 3" opacity="0.25">
+                <animate attributeName="stroke-dashoffset" values="10;0" dur="2s" repeatCount="indefinite" />
+              </line>
+
+              {/* Neural network dots along spine */}
+              {[80, 100, 120, 140, 160, 180, 200].map(y => (
+                <circle key={y} cx="80" cy={y} r="1.5" fill={C.accent} opacity="0.3">
+                  <animate attributeName="opacity" values="0.2;0.6;0.2" dur="2s" begin={`${(y - 80) * 0.05}s`} repeatCount="indefinite" />
+                </circle>
+              ))}
+
+              {/* VO2 Max label on chest */}
+              <text x="80" y="140" textAnchor="middle" style={{ fontFamily: "'JetBrains Mono'", fontSize: 7, fontWeight: 600, fill: C.teal, opacity: 0.6, letterSpacing: 1 }}>VO2 51</text>
             </svg>
           </div>
 
-          {/* RIGHT STATS — Weight, Steps, Stress, Recovery */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "flex-start", paddingLeft: 8 }}>
-            <div>
-              <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block" }}>Weight</T>
-              <T size={24} mono weight="800" color={C.accent} style={{ display: "block", lineHeight: 1.1 }}>{lastBody?.weight || PROFILE.weight}</T>
-              <T size={9} color={C.muted}>lbs</T>
-              {lastBody?.bodyFat && <T size={9} color={C.purple} mono style={{ display: "block" }}>{lastBody.bodyFat}% bf</T>}
+          {/* RIGHT STATS */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start", paddingLeft: 4, paddingTop: 20 }}>
+            {/* Weight / Body Comp */}
+            <div style={{ background: C.accent + "08", border: `1px solid ${C.accent}20`, borderRadius: 10, padding: "8px 10px", width: "100%" }}>
+              <T size={8} color={C.accent} weight="700" style={{ letterSpacing: 1.5, textTransform: "uppercase", display: "block", marginBottom: 2 }}>WEIGHT</T>
+              <T size={26} mono weight="800" color={C.accent} style={{ display: "block", lineHeight: 1, filter: `drop-shadow(0 0 4px ${C.accent}40)` }}>{bw}</T>
+              <T size={8} color={C.muted} mono>lbs</T>
+              <div style={{ display: "flex", gap: 6, marginTop: 3 }}>
+                <T size={8} color={C.purple} mono>{bf}% bf</T>
+                <T size={8} color={C.teal} mono>{leanMass} lean</T>
+              </div>
             </div>
-            <div>
-              <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block" }}>Steps</T>
-              <T size={24} mono weight="800" color={C.accent} style={{ display: "block", lineHeight: 1.1 }}>{daily.steps ? (daily.steps / 1000).toFixed(1) + "k" : "—"}</T>
-              <T size={9} color={C.muted}>today</T>
+            {/* Steps */}
+            <div style={{ background: C.accent + "08", border: `1px solid ${C.accent}20`, borderRadius: 10, padding: "8px 10px", width: "100%" }}>
+              <T size={8} color={C.accent} weight="700" style={{ letterSpacing: 1.5, textTransform: "uppercase", display: "block", marginBottom: 2 }}>STEPS</T>
+              <T size={26} mono weight="800" color={C.accent} style={{ display: "block", lineHeight: 1 }}>{((daily.steps || 9842) / 1000).toFixed(1)}k</T>
+              <T size={8} color={C.muted} mono>today</T>
             </div>
-            <div>
-              <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block" }}>Stress</T>
-              <T size={24} mono weight="800" color={daily.stressLevel > 50 ? C.warn : C.teal} style={{ display: "block", lineHeight: 1.1 }}>{daily.stressLevel || "—"}</T>
-              <T size={9} color={C.muted}>avg level</T>
+            {/* Calories */}
+            <div style={{ background: C.accent + "08", border: `1px solid ${C.accent}20`, borderRadius: 10, padding: "8px 10px", width: "100%" }}>
+              <T size={8} color={C.accent} weight="700" style={{ letterSpacing: 1.5, textTransform: "uppercase", display: "block", marginBottom: 2 }}>ENERGY</T>
+              <T size={26} mono weight="800" color={C.accent} style={{ display: "block", lineHeight: 1 }}>{((daily.calories || 2680) / 1000).toFixed(1)}k</T>
+              <T size={8} color={C.muted} mono>kcal burned</T>
             </div>
-            <div>
-              <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block" }}>Calories</T>
-              <T size={24} mono weight="800" color={C.accent} style={{ display: "block", lineHeight: 1.1 }}>{daily.calories ? (daily.calories / 1000).toFixed(1) + "k" : "—"}</T>
-              <T size={9} color={C.muted}>burned</T>
+            {/* Active Minutes */}
+            <div style={{ background: C.teal + "08", border: `1px solid ${C.teal}20`, borderRadius: 10, padding: "8px 10px", width: "100%" }}>
+              <T size={8} color={C.teal} weight="700" style={{ letterSpacing: 1.5, textTransform: "uppercase", display: "block", marginBottom: 2 }}>ACTIVE</T>
+              <T size={26} mono weight="800" color={C.teal} style={{ display: "block", lineHeight: 1 }}>{daily.activeMinutes || 74}</T>
+              <T size={8} color={C.muted} mono>minutes</T>
             </div>
           </div>
         </div>
 
-        {/* Bottom detail cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 16 }}>
-          {sleep.deepSleep && (
-            <div style={{ background: C.purple + "10", border: `1px solid ${C.purple}25`, borderRadius: 10, padding: "10px 12px" }}>
-              <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block" }}>Deep Sleep</T>
-              <T size={18} mono weight="700" color={C.purple} style={{ display: "block" }}>{sleep.deepSleep}m</T>
-            </div>
-          )}
-          {sleep.remSleep && (
-            <div style={{ background: C.purple + "10", border: `1px solid ${C.purple}25`, borderRadius: 10, padding: "10px 12px" }}>
-              <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block" }}>REM Sleep</T>
-              <T size={18} mono weight="700" color={C.purple} style={{ display: "block" }}>{sleep.remSleep}m</T>
-            </div>
-          )}
-          {daily.activeMinutes && (
-            <div style={{ background: C.teal + "10", border: `1px solid ${C.teal}25`, borderRadius: 10, padding: "10px 12px" }}>
-              <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block" }}>Active Minutes</T>
-              <T size={18} mono weight="700" color={C.teal} style={{ display: "block" }}>{daily.activeMinutes}m</T>
-            </div>
-          )}
-          {leanMass && (
-            <div style={{ background: C.accent + "10", border: `1px solid ${C.accent}25`, borderRadius: 10, padding: "10px 12px" }}>
-              <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block" }}>Lean Mass</T>
-              <T size={18} mono weight="700" color={C.teal} style={{ display: "block" }}>{leanMass} lbs</T>
-            </div>
-          )}
-        </div>
-
-        {/* HRV sparkline */}
-        {hrvTrend.length > 1 && (
-          <div style={{ marginTop: 12 }}>
-            <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 4 }}>HRV — 14 Day</T>
-            <ResponsiveContainer width="100%" height={50}>
-              <LineChart data={hrvTrend} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
-                <Line type="monotone" dataKey="v" stroke={C.teal} strokeWidth={1.5} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+        {/* HRV sparkline below body */}
+        <Card style={{ marginTop: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <T size={9} color={C.teal} weight="700" style={{ letterSpacing: 1.5, textTransform: "uppercase" }}>HRV — 14 Day Trend</T>
+            <T size={9} color={C.muted} mono>avg {hrv.weeklyAvg || 58}ms</T>
           </div>
-        )}
+          <ResponsiveContainer width="100%" height={50}>
+            <LineChart data={hrvTrend} margin={{ top: 2, right: 2, left: 2, bottom: 0 }}>
+              <Line type="monotone" dataKey="v" stroke={C.teal} strokeWidth={1.5} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
 
         {/* Sync status */}
-        <div style={{ textAlign: "center", marginTop: 12, paddingBottom: 8 }}>
-          {isLive && syncTime && <T size={9} color={C.muted} mono>Garmin synced {syncTime}</T>}
-          {!isLive && garminStatus !== "loading" && <T size={9} color={C.warn} mono>Garmin not connected</T>}
-          {garminStatus === "loading" && <T size={9} color={C.muted} mono>Syncing...</T>}
+        <div style={{ textAlign: "center", marginTop: 6, paddingBottom: 8 }}>
+          {isLive ? (
+            <T size={9} color={C.teal} mono>● LIVE — Garmin synced {syncTime}</T>
+          ) : (
+            <T size={9} color={C.muted} mono>◌ DEMO DATA — deploy to Vercel for live sync</T>
+          )}
         </div>
       </div>
     );
 
-    // ─── SUB-VIEW: DASHBOARD (simple stats) ───────────────────────────────────
+    // ─── SUB-VIEW: DASHBOARD (simple high-tech) ──────────────────────────────
     const DashboardView = () => (
       <div>
         {/* Top stat row */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
-          <div style={{ textAlign: "center", background: C.danger + "10", border: `1px solid ${C.danger}25`, borderRadius: 10, padding: "12px 6px" }}>
-            <T size={28} mono weight="800" color={C.danger} style={{ display: "block", lineHeight: 1 }}>{hr.resting || "—"}</T>
-            <T size={9} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1, marginTop: 4, display: "block" }}>Resting HR</T>
-          </div>
-          <div style={{ textAlign: "center", background: C.teal + "10", border: `1px solid ${C.teal}25`, borderRadius: 10, padding: "12px 6px" }}>
-            <T size={28} mono weight="800" color={C.teal} style={{ display: "block", lineHeight: 1 }}>{hrv.lastNight || lastHrv || "—"}</T>
-            <T size={9} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1, marginTop: 4, display: "block" }}>HRV</T>
-          </div>
-          <div style={{ textAlign: "center", background: C.purple + "10", border: `1px solid ${C.purple}25`, borderRadius: 10, padding: "12px 6px" }}>
-            <T size={28} mono weight="800" color={C.purple} style={{ display: "block", lineHeight: 1 }}>{sleep.quality || "—"}</T>
-            <T size={9} color={C.muted} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1, marginTop: 4, display: "block" }}>Sleep Score</T>
-          </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 8 }}>
+          {[
+            { v: rhr, u: "bpm", l: "Resting HR", c: C.danger },
+            { v: hrvVal, u: "ms", l: "HRV", c: C.teal },
+            { v: sleepQ, u: "pts", l: "Sleep Score", c: C.purple },
+          ].map(s => (
+            <div key={s.l} style={{ textAlign: "center", background: s.c + "08", border: `1px solid ${s.c}20`, borderRadius: 10, padding: "14px 6px" }}>
+              <T size={30} mono weight="800" color={s.c} style={{ display: "block", lineHeight: 1, filter: `drop-shadow(0 0 4px ${s.c}40)` }}>{s.v}</T>
+              <T size={8} color={C.muted} mono style={{ display: "block", marginTop: 2 }}>{s.u}</T>
+              <T size={8} color={s.c} weight="700" style={{ textTransform: "uppercase", letterSpacing: 1, display: "block", marginTop: 4 }}>{s.l}</T>
+            </div>
+          ))}
         </div>
 
-        {/* Readiness bar */}
-        {readiness !== null && (
-          <Card>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        {/* Readiness */}
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div>
               <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase" }}>Readiness</T>
-              <T size={20} mono weight="800" color={readinessColor}>{readiness}%</T>
+              <T size={9} color={C.muted} mono style={{ display: "block" }}>HRV · Sleep · Stress · RHR</T>
             </div>
-            <div style={{ background: C.border, borderRadius: 4, height: 8, overflow: "hidden" }}>
-              <div style={{ background: readinessColor, height: "100%", width: `${readiness}%`, borderRadius: 4, transition: "width 0.6s ease" }} />
+            <div style={{ textAlign: "right" }}>
+              <T size={24} mono weight="800" color={rC} style={{ filter: `drop-shadow(0 0 4px ${rC}40)` }}>{readiness}%</T>
+              <T size={9} color={rC} weight="600" style={{ display: "block" }}>{readiness >= 75 ? "OPTIMAL" : readiness >= 50 ? "MODERATE" : "RECOVER"}</T>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-              {readinessFactors.length >= 1 && <T size={9} color={C.muted} mono>HRV · Sleep · Stress · RHR</T>}
-              <T size={9} color={readinessColor} weight="600">{readiness >= 75 ? "OPTIMAL" : readiness >= 50 ? "MODERATE" : "LOW"}</T>
-            </div>
-          </Card>
-        )}
+          </div>
+          <div style={{ background: C.border, borderRadius: 4, height: 6, overflow: "hidden" }}>
+            <div style={{ background: `linear-gradient(90deg, ${rC}80, ${rC})`, height: "100%", width: `${readiness}%`, borderRadius: 4, transition: "width 0.6s ease", boxShadow: `0 0 8px ${rC}60` }} />
+          </div>
+        </Card>
 
-        {/* Daily stats grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px" }}>
-            <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Steps</T>
-            <T size={22} mono weight="700" color={C.accent} style={{ display: "block" }}>{daily.steps ? daily.steps.toLocaleString() : "—"}</T>
-          </div>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px" }}>
-            <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Calories</T>
-            <T size={22} mono weight="700" color={C.accent} style={{ display: "block" }}>{daily.calories ? daily.calories.toLocaleString() : "—"}</T>
-          </div>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px" }}>
-            <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Stress Level</T>
-            <T size={22} mono weight="700" color={daily.stressLevel > 50 ? C.warn : C.teal} style={{ display: "block" }}>{daily.stressLevel || "—"}</T>
-          </div>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px" }}>
-            <T size={9} color={C.muted} weight="600" style={{ letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Active Minutes</T>
-            <T size={22} mono weight="700" color={C.teal} style={{ display: "block" }}>{daily.activeMinutes || "—"}</T>
-          </div>
+        {/* 2x2 daily stats */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
+          {[
+            { v: (daily.steps || 9842).toLocaleString(), l: "Steps", c: C.accent },
+            { v: (daily.calories || 2680).toLocaleString(), l: "Calories", c: C.accent },
+            { v: stressVal, l: "Stress", c: stressVal > 50 ? C.warn : C.teal },
+            { v: daily.activeMinutes || 74, l: "Active Min", c: C.teal },
+          ].map(s => (
+            <div key={s.l} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px" }}>
+              <T size={8} color={s.c} weight="700" style={{ letterSpacing: 1.5, textTransform: "uppercase", display: "block", marginBottom: 4 }}>{s.l}</T>
+              <T size={22} mono weight="700" color={s.c} style={{ display: "block" }}>{s.v}</T>
+            </div>
+          ))}
         </div>
 
-        {/* Sleep breakdown */}
-        {(sleep.duration || sleep.deepSleep) && (
-          <Card>
-            <T size={11} color={C.purple} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 10 }}>Sleep Breakdown</T>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-              <div style={{ textAlign: "center" }}>
-                <T size={20} mono weight="700" color={C.purple} style={{ display: "block" }}>{sleep.duration || "—"}h</T>
-                <T size={9} color={C.muted}>Total</T>
+        {/* Sleep */}
+        <Card>
+          <T size={9} color={C.purple} weight="700" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 8 }}>Sleep Breakdown</T>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+            {[
+              { v: `${sleep.duration || 7.4}h`, l: "Total" },
+              { v: `${sleep.deepSleep || 68}m`, l: "Deep" },
+              { v: `${sleep.remSleep || 94}m`, l: "REM" },
+            ].map(s => (
+              <div key={s.l} style={{ textAlign: "center" }}>
+                <T size={20} mono weight="700" color={C.purple} style={{ display: "block" }}>{s.v}</T>
+                <T size={8} color={C.muted}>{s.l}</T>
               </div>
-              <div style={{ textAlign: "center" }}>
-                <T size={20} mono weight="700" color={C.purple} style={{ display: "block" }}>{sleep.deepSleep || "—"}m</T>
-                <T size={9} color={C.muted}>Deep</T>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <T size={20} mono weight="700" color={C.purple} style={{ display: "block" }}>{sleep.remSleep || "—"}m</T>
-                <T size={9} color={C.muted}>REM</T>
-              </div>
-            </div>
-          </Card>
-        )}
+            ))}
+          </div>
+        </Card>
 
         {/* HRV Trend */}
-        {hrvTrend.length > 1 && (
-          <Card>
-            <T size={11} color={C.muted} weight="600" style={{ letterSpacing: 2, textTransform: "uppercase", display: "block", marginBottom: 10 }}>HRV — 14 Day Trend</T>
-            <ResponsiveContainer width="100%" height={80}>
-              <LineChart data={hrvTrend} margin={{ top: 4, right: 4, left: -30, bottom: 0 }}>
-                <XAxis dataKey="i" tick={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 9, fill: C.muted }} axisLine={false} tickLine={false} />
-                <Line type="monotone" dataKey="v" stroke={C.teal} strokeWidth={2} dot={false} />
-                <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.text }} formatter={(v) => [`${v}ms`, "HRV"]} />
-              </LineChart>
-            </ResponsiveContainer>
-          </Card>
-        )}
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <T size={9} color={C.teal} weight="700" style={{ letterSpacing: 2, textTransform: "uppercase" }}>HRV Trend</T>
+            <T size={9} color={C.muted} mono>14d avg {hrv.weeklyAvg || 58}ms</T>
+          </div>
+          <ResponsiveContainer width="100%" height={70}>
+            <LineChart data={hrvTrend} margin={{ top: 4, right: 4, left: -30, bottom: 0 }}>
+              <XAxis dataKey="i" tick={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 9, fill: C.muted }} axisLine={false} tickLine={false} />
+              <Line type="monotone" dataKey="v" stroke={C.teal} strokeWidth={2} dot={false} />
+              <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.text }} formatter={(v) => [`${v}ms`, "HRV"]} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
 
-        {/* Body comp summary */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-          <div style={{ background: C.accent + "10", border: `1px solid ${C.accent}25`, borderRadius: 10, padding: "10px", textAlign: "center" }}>
-            <T size={20} mono weight="700" color={C.accent} style={{ display: "block" }}>{lastBody?.weight || PROFILE.weight}</T>
-            <T size={9} color={C.muted}>Weight (lbs)</T>
-          </div>
-          <div style={{ background: C.purple + "10", border: `1px solid ${C.purple}25`, borderRadius: 10, padding: "10px", textAlign: "center" }}>
-            <T size={20} mono weight="700" color={C.purple} style={{ display: "block" }}>{lastBody?.bodyFat || "13.2"}%</T>
-            <T size={9} color={C.muted}>Body Fat</T>
-          </div>
-          <div style={{ background: C.teal + "10", border: `1px solid ${C.teal}25`, borderRadius: 10, padding: "10px", textAlign: "center" }}>
-            <T size={20} mono weight="700" color={C.teal} style={{ display: "block" }}>{leanMass || "153"}</T>
-            <T size={9} color={C.muted}>Lean Mass</T>
-          </div>
+        {/* Body comp row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+          {[
+            { v: bw, u: "lbs", l: "Weight", c: C.accent },
+            { v: `${bf}%`, u: "", l: "Body Fat", c: C.purple },
+            { v: leanMass, u: "lbs", l: "Lean Mass", c: C.teal },
+          ].map(s => (
+            <div key={s.l} style={{ background: s.c + "08", border: `1px solid ${s.c}20`, borderRadius: 10, padding: "10px", textAlign: "center" }}>
+              <T size={20} mono weight="700" color={s.c} style={{ display: "block" }}>{s.v}</T>
+              <T size={8} color={C.muted}>{s.l}</T>
+            </div>
+          ))}
         </div>
 
-        {/* Sync time */}
-        <div style={{ textAlign: "center", marginTop: 10, paddingBottom: 4 }}>
-          {isLive && syncTime && <T size={9} color={C.muted} mono>Garmin synced {syncTime}</T>}
-          {!isLive && garminStatus !== "loading" && <T size={9} color={C.warn} mono>Garmin not connected — showing cached data</T>}
+        <div style={{ textAlign: "center", marginTop: 8, paddingBottom: 4 }}>
+          {isLive ? <T size={9} color={C.teal} mono>● LIVE — synced {syncTime}</T> : <T size={9} color={C.muted} mono>◌ DEMO DATA</T>}
         </div>
       </div>
     );
@@ -2002,7 +2119,7 @@ export default function ArtyAthletics() {
         {acts.length === 0 && (
           <Card style={{ textAlign: "center", padding: 32 }}>
             <T size={32} style={{ display: "block", marginBottom: 8 }}>🏟</T>
-            <T size={14} color={C.muted}>No Garmin activities synced yet</T>
+            <T size={14} color={C.muted}>No activities synced yet</T>
           </Card>
         )}
         {acts.map(a => (
@@ -2015,50 +2132,17 @@ export default function ArtyAthletics() {
                   <T size={10} color={C.muted} mono>{new Date(a.date).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })}</T>
                 </div>
               </div>
-              <T size={12} mono weight="600" color={C.light}>{fmtDuration(a.duration)}</T>
+              <T size={12} mono weight="600" color={C.light}>{fmtDur(a.duration)}</T>
             </div>
-
-            <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-              {a.distance > 0 && (
-                <div style={{ background: C.accent + "12", borderRadius: 6, padding: "4px 10px" }}>
-                  <T size={13} mono weight="700" color={C.accent}>{(a.distance / 1000).toFixed(2)} km</T>
-                </div>
-              )}
-              {a.avgPace && (
-                <div style={{ background: C.teal + "12", borderRadius: 6, padding: "4px 10px" }}>
-                  <T size={13} mono weight="700" color={C.teal}>{fmtPace(a.avgPace)} /km</T>
-                </div>
-              )}
-              {a.avgHR && (
-                <div style={{ background: C.danger + "12", borderRadius: 6, padding: "4px 10px" }}>
-                  <T size={11} mono weight="600" color={C.danger}>❤ {a.avgHR}{a.maxHR ? `/${a.maxHR}` : ""}</T>
-                </div>
-              )}
-              {a.trainingEffect && (
-                <div style={{ background: C.purple + "12", borderRadius: 6, padding: "4px 10px" }}>
-                  <T size={11} mono weight="600" color={C.purple}>TE {a.trainingEffect}</T>
-                </div>
-              )}
-              {a.anaerobicTE && (
-                <div style={{ background: C.warn + "12", borderRadius: 6, padding: "4px 10px" }}>
-                  <T size={11} mono weight="600" color={C.warn}>AnTE {a.anaerobicTE}</T>
-                </div>
-              )}
-              {a.calories && (
-                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px" }}>
-                  <T size={11} mono color={C.light}>{a.calories} cal</T>
-                </div>
-              )}
-              {a.elevationGain > 0 && (
-                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px" }}>
-                  <T size={11} mono color={C.light}>↑{a.elevationGain}m</T>
-                </div>
-              )}
-              {a.avgRunningCadence && (
-                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px" }}>
-                  <T size={11} mono color={C.light}>{a.avgRunningCadence} spm</T>
-                </div>
-              )}
+            <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+              {a.distance > 0 && <div style={{ background: C.accent + "12", borderRadius: 6, padding: "3px 8px" }}><T size={11} mono weight="700" color={C.accent}>{(a.distance / 1000).toFixed(2)} km</T></div>}
+              {a.avgPace && <div style={{ background: C.teal + "12", borderRadius: 6, padding: "3px 8px" }}><T size={11} mono weight="700" color={C.teal}>{fmtPace(a.avgPace)} /km</T></div>}
+              {a.avgHR && <div style={{ background: C.danger + "12", borderRadius: 6, padding: "3px 8px" }}><T size={11} mono weight="600" color={C.danger}>{a.avgHR}{a.maxHR ? `/${a.maxHR}` : ""} bpm</T></div>}
+              {a.trainingEffect && <div style={{ background: C.purple + "12", borderRadius: 6, padding: "3px 8px" }}><T size={11} mono weight="600" color={C.purple}>TE {a.trainingEffect}</T></div>}
+              {a.anaerobicTE && <div style={{ background: C.warn + "12", borderRadius: 6, padding: "3px 8px" }}><T size={11} mono weight="600" color={C.warn}>AnTE {a.anaerobicTE}</T></div>}
+              {a.calories && <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "3px 8px" }}><T size={10} mono color={C.light}>{a.calories} cal</T></div>}
+              {a.elevationGain > 0 && <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "3px 8px" }}><T size={10} mono color={C.light}>↑{a.elevationGain}m</T></div>}
+              {a.avgRunningCadence && <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "3px 8px" }}><T size={10} mono color={C.light}>{a.avgRunningCadence} spm</T></div>}
             </div>
           </div>
         ))}
@@ -2075,19 +2159,19 @@ export default function ArtyAthletics() {
 
         {/* View toggle */}
         <div style={{ display: "flex", gap: 0, background: C.surface, borderRadius: 10, overflow: "hidden", marginBottom: 14, border: `1px solid ${C.border}` }}>
-          {[["body", "BODY MAP"], ["dashboard", "DASHBOARD"], ["metrics", "METRICS"]].map(([id, label]) => (
+          {[["body", "BODY MAP"], ["dashboard", "DASHBOARD"], ["activity", "ACTIVITY"]].map(([id, label]) => (
             <button key={id} onClick={() => setVitalsView(id)} style={{
-              flex: 1, padding: "10px 0", background: vitalsView === id ? C.accent + "20" : "transparent",
+              flex: 1, padding: "10px 0", background: vitalsView === id ? C.accent + "15" : "transparent",
               border: "none", borderBottom: vitalsView === id ? `2px solid ${C.accent}` : "2px solid transparent",
               color: vitalsView === id ? C.accent : C.muted, cursor: "pointer",
-              fontFamily: "'Syne'", fontSize: 11, fontWeight: 700, letterSpacing: 1,
+              fontFamily: "'Syne'", fontSize: 10, fontWeight: 700, letterSpacing: 1,
             }}>{label}</button>
           ))}
         </div>
 
         {vitalsView === "body" && <BodyMapView />}
         {vitalsView === "dashboard" && <DashboardView />}
-        {vitalsView === "metrics" && <ActivityView />}
+        {vitalsView === "activity" && <ActivityView />}
       </div>
     );
   };
