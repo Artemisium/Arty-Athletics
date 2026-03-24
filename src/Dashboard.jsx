@@ -1693,18 +1693,19 @@ export default function ArtyAthletics() {
   // BODY TAB
   // ─── VITALS TAB ──────────────────────────────────────────────────────────────
   const VitalsTab = () => {
-    // Demo data for when Garmin API isn't reachable (local dev / first load)
+    // Demo data — dates are relative to today so they always look current
+    const demoDate = (daysAgo, h, m) => { const d = new Date(); d.setDate(d.getDate() - daysAgo); d.setHours(h, m, 0, 0); return d.toISOString(); };
     const DEMO = {
       heartRate: { resting: 52, min: 48, max: 172 },
       sleep: { duration: 7.4, quality: 82, deepSleep: 68, remSleep: 94 },
       dailyStats: { steps: 9842, calories: 2680, restingHR: 52, activeMinutes: 74, stressLevel: 28 },
       hrv: { lastNight: 62, weeklyAvg: 58, status: "BALANCED" },
       activities: [
-        { id: 1, name: "Easy Run", type: "running", date: "2026-03-22T07:30:00", duration: 2460, distance: 6200, avgHR: 142, maxHR: 158, avgPace: 397, calories: 520, avgRunningCadence: 172, elevationGain: 34, trainingEffect: 2.3, anaerobicTE: 0.4 },
-        { id: 2, name: "Strength Training", type: "strength_training", date: "2026-03-21T17:00:00", duration: 3600, distance: 0, avgHR: 128, maxHR: 165, calories: 380, trainingEffect: 3.1, anaerobicTE: 2.1 },
-        { id: 3, name: "Zone 2 Run", type: "running", date: "2026-03-20T06:45:00", duration: 3300, distance: 8100, avgHR: 148, maxHR: 162, avgPace: 407, calories: 640, avgRunningCadence: 170, elevationGain: 52, trainingEffect: 2.8, anaerobicTE: 0.2 },
-        { id: 4, name: "Indoor Cycling", type: "indoor_cycling", date: "2026-03-19T12:00:00", duration: 2700, distance: 18000, avgHR: 138, maxHR: 155, calories: 420, trainingEffect: 2.5, anaerobicTE: 0.8 },
-        { id: 5, name: "Long Run", type: "running", date: "2026-03-18T07:00:00", duration: 5400, distance: 14200, avgHR: 146, maxHR: 168, avgPace: 380, calories: 1100, avgRunningCadence: 174, elevationGain: 87, trainingEffect: 3.8, anaerobicTE: 0.6 },
+        { id: 1, name: "Easy Run", type: "running", date: demoDate(0, 7, 30), duration: 2460, distance: 6200, avgHR: 142, maxHR: 158, avgPace: 397, calories: 520, avgRunningCadence: 172, elevationGain: 34, trainingEffect: 2.3, anaerobicTE: 0.4 },
+        { id: 2, name: "Strength Training", type: "strength_training", date: demoDate(1, 17, 0), duration: 3600, distance: 0, avgHR: 128, maxHR: 165, calories: 380, trainingEffect: 3.1, anaerobicTE: 2.1 },
+        { id: 3, name: "Zone 2 Run", type: "running", date: demoDate(2, 6, 45), duration: 3300, distance: 8100, avgHR: 148, maxHR: 162, avgPace: 407, calories: 640, avgRunningCadence: 170, elevationGain: 52, trainingEffect: 2.8, anaerobicTE: 0.2 },
+        { id: 4, name: "Indoor Cycling", type: "indoor_cycling", date: demoDate(3, 12, 0), duration: 2700, distance: 18000, avgHR: 138, maxHR: 155, calories: 420, trainingEffect: 2.5, anaerobicTE: 0.8 },
+        { id: 5, name: "Long Run", type: "running", date: demoDate(4, 7, 0), duration: 5400, distance: 14200, avgHR: 146, maxHR: 168, avgPace: 380, calories: 1100, avgRunningCadence: 174, elevationGain: 87, trainingEffect: 3.8, anaerobicTE: 0.6 },
       ],
       syncedAt: new Date().toISOString(),
     };
@@ -1825,338 +1826,154 @@ export default function ArtyAthletics() {
             </div>
           </div>
 
-          {/* CENTER — Anatomical Scientific Body Diagram */}
+          {/* CENTER — Wireframe Body Diagram */}
           <div style={{ display: "flex", justifyContent: "center", position: "relative" }}>
-            <svg width="160" height="420" viewBox="0 0 160 420" style={{ filter: `drop-shadow(0 0 20px ${rC}15)` }}>
+            <svg width="160" height="400" viewBox="0 0 160 400" style={{ filter: `drop-shadow(0 0 15px ${rC}12)` }}>
               <defs>
-                <linearGradient id="bodyGlow" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={C.accent} stopOpacity="0.06" />
-                  <stop offset="100%" stopColor={C.purple} stopOpacity="0.06" />
-                </linearGradient>
                 <linearGradient id="scanGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={rC} stopOpacity="0" />
-                  <stop offset="50%" stopColor={rC} stopOpacity="0.25" />
+                  <stop offset="50%" stopColor={rC} stopOpacity="0.2" />
                   <stop offset="100%" stopColor={rC} stopOpacity="0" />
                 </linearGradient>
-                <linearGradient id="arterialGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={C.danger} stopOpacity="0.8" />
-                  <stop offset="100%" stopColor={C.danger} stopOpacity="0.3" />
-                </linearGradient>
-                <linearGradient id="venousGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#4466cc" stopOpacity="0.6" />
-                  <stop offset="100%" stopColor="#4466cc" stopOpacity="0.2" />
-                </linearGradient>
-                <filter id="softGlow"><feGaussianBlur stdDeviation="1.5" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-                <filter id="organGlow"><feGaussianBlur stdDeviation="3" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
               </defs>
 
-              {/* Fine measurement grid */}
-              {Array.from({ length: 42 }, (_, i) => (
-                <line key={`hg${i}`} x1="0" y1={i * 10} x2="160" y2={i * 10} stroke={C.border} strokeWidth={i % 5 === 0 ? "0.4" : "0.15"} opacity={i % 5 === 0 ? "0.2" : "0.1"} />
-              ))}
-              {Array.from({ length: 16 }, (_, i) => (
-                <line key={`vg${i}`} x1={i * 10} y1="0" x2={i * 10} y2="420" stroke={C.border} strokeWidth={i % 5 === 0 ? "0.4" : "0.15"} opacity={i % 5 === 0 ? "0.2" : "0.1"} />
-              ))}
-              {/* Center axis */}
-              <line x1="80" y1="0" x2="80" y2="420" stroke={C.accent} strokeWidth="0.3" opacity="0.15" strokeDasharray="4 6" />
-
               {/* Scan line */}
-              <rect x="10" y="195" width="140" height="14" fill="url(#scanGrad)" opacity="0.5" rx="2">
-                <animateTransform attributeName="transform" type="translate" values="0 -210; 0 210" dur="4s" repeatCount="indefinite" />
+              <rect x="20" y="190" width="120" height="10" fill="url(#scanGrad)" opacity="0.4" rx="2">
+                <animateTransform attributeName="transform" type="translate" values="0 -200; 0 200" dur="4s" repeatCount="indefinite" />
               </rect>
 
-              {/* ═══ SKELETAL SYSTEM (deepest layer) ═══ */}
-              {/* Skull */}
-              <ellipse cx="80" cy="30" rx="17" ry="21" fill="none" stroke={C.muted} strokeWidth="0.6" opacity="0.2" />
-              <path d="M 68 38 Q 74 45 80 46 Q 86 45 92 38" fill="none" stroke={C.muted} strokeWidth="0.4" opacity="0.15" />
-              {/* Eye sockets */}
-              <ellipse cx="73" cy="26" rx="5" ry="4" fill="none" stroke={C.muted} strokeWidth="0.3" opacity="0.15" />
-              <ellipse cx="87" cy="26" rx="5" ry="4" fill="none" stroke={C.muted} strokeWidth="0.3" opacity="0.15" />
-              {/* Nasal */}
-              <path d="M 80 30 L 78 36 L 82 36 Z" fill="none" stroke={C.muted} strokeWidth="0.3" opacity="0.12" />
+              {/* ═══ WIREFRAME BODY ═══ */}
+              {/* Head — circle */}
+              <circle cx="80" cy="28" r="18" fill="none" stroke={C.accent} strokeWidth="1.2" opacity="0.6" />
+              {/* Cross-hairs on head */}
+              <line x1="80" y1="12" x2="80" y2="44" stroke={C.accent} strokeWidth="0.3" opacity="0.15" />
+              <line x1="64" y1="28" x2="96" y2="28" stroke={C.accent} strokeWidth="0.3" opacity="0.15" />
 
-              {/* Cervical spine (C1-C7) */}
-              {[52, 55, 58, 61, 64, 67, 70].map((y, i) => (
-                <g key={`cv${i}`}>
-                  <rect x="76" y={y} width="8" height="2.5" rx="1" fill={C.muted + "08"} stroke={C.muted} strokeWidth="0.3" opacity="0.2" />
-                </g>
-              ))}
-              {/* Thoracic spine (T1-T12) */}
-              {Array.from({ length: 12 }, (_, i) => {
-                const y = 74 + i * 8;
-                const w = 10 + Math.min(i, 6) * 0.5;
-                return <rect key={`tv${i}`} x={80 - w / 2} y={y} width={w} height="3" rx="1" fill={C.muted + "06"} stroke={C.muted} strokeWidth="0.3" opacity="0.18" />;
+              {/* Neck */}
+              <line x1="74" y1="46" x2="74" y2="62" stroke={C.accent} strokeWidth="1" opacity="0.5" />
+              <line x1="86" y1="46" x2="86" y2="62" stroke={C.accent} strokeWidth="1" opacity="0.5" />
+
+              {/* Shoulders — horizontal bar */}
+              <line x1="32" y1="68" x2="128" y2="68" stroke={C.accent} strokeWidth="1.2" opacity="0.55" />
+              {/* Shoulder joints */}
+              <circle cx="32" cy="68" r="4" fill="none" stroke={C.accent} strokeWidth="1" opacity="0.5" />
+              <circle cx="128" cy="68" r="4" fill="none" stroke={C.accent} strokeWidth="1" opacity="0.5" />
+
+              {/* Torso — wireframe trapezoid */}
+              <line x1="48" y1="68" x2="42" y2="200" stroke={C.accent} strokeWidth="1" opacity="0.5" />
+              <line x1="112" y1="68" x2="118" y2="200" stroke={C.accent} strokeWidth="1" opacity="0.5" />
+              {/* Waist line */}
+              <line x1="50" y1="155" x2="110" y2="155" stroke={C.accent} strokeWidth="0.6" opacity="0.25" />
+              {/* Hip line */}
+              <line x1="42" y1="200" x2="118" y2="200" stroke={C.accent} strokeWidth="1" opacity="0.5" />
+
+              {/* Torso cross-sections (wireframe rings) */}
+              {[82, 100, 118, 136, 155, 175, 192].map((y, i) => {
+                const t = (y - 68) / (200 - 68);
+                const wL = 48 + (42 - 48) * t;
+                const wR = 112 + (118 - 112) * t;
+                return <line key={`cs${i}`} x1={wL} y1={y} x2={wR} y2={y} stroke={C.accent} strokeWidth="0.3" opacity="0.12" />;
               })}
-              {/* Lumbar spine (L1-L5) */}
-              {Array.from({ length: 5 }, (_, i) => {
-                const y = 172 + i * 9;
-                return <rect key={`lv${i}`} x="74" y={y} width="12" height="4" rx="1.5" fill={C.muted + "08"} stroke={C.muted} strokeWidth="0.35" opacity="0.2" />;
-              })}
-              {/* Sacrum */}
-              <path d="M 74 218 L 86 218 L 83 235 L 77 235 Z" fill={C.muted + "06"} stroke={C.muted} strokeWidth="0.3" opacity="0.18" />
+              {/* Center line (spine) */}
+              <line x1="80" y1="62" x2="80" y2="200" stroke={C.accent} strokeWidth="0.5" opacity="0.2" strokeDasharray="3 4" />
 
-              {/* Ribcage */}
-              {Array.from({ length: 10 }, (_, i) => {
-                const y = 78 + i * 8;
-                const rx = 18 + Math.sin((i / 9) * Math.PI) * 12;
-                const ry = 3 + Math.sin((i / 9) * Math.PI) * 1;
-                return (
-                  <g key={`rib${i}`}>
-                    <ellipse cx="80" cy={y} rx={rx} ry={ry} fill="none" stroke={C.muted} strokeWidth="0.3" opacity={i < 7 ? "0.18" : "0.12"} />
-                  </g>
-                );
-              })}
-              {/* Sternum */}
-              <line x1="80" y1="74" x2="80" y2="148" stroke={C.muted} strokeWidth="0.6" opacity="0.15" />
-
-              {/* Clavicles */}
-              <path d="M 80 74 Q 60 70 36 76" fill="none" stroke={C.muted} strokeWidth="0.5" opacity="0.2" />
-              <path d="M 80 74 Q 100 70 124 76" fill="none" stroke={C.muted} strokeWidth="0.5" opacity="0.2" />
-              {/* Scapulae (implied) */}
-              <ellipse cx="56" cy="92" rx="12" ry="18" fill="none" stroke={C.muted} strokeWidth="0.2" opacity="0.08" />
-              <ellipse cx="104" cy="92" rx="12" ry="18" fill="none" stroke={C.muted} strokeWidth="0.2" opacity="0.08" />
-
-              {/* Pelvis */}
-              <path d="M 52 210 Q 48 220 50 232 Q 55 240 65 238 Q 72 235 76 225 L 80 220 L 84 225 Q 88 235 95 238 Q 105 240 110 232 Q 112 220 108 210" fill={C.muted + "04"} stroke={C.muted} strokeWidth="0.4" opacity="0.2" />
-
-              {/* Femurs */}
-              <line x1="62" y1="238" x2="54" y2="310" stroke={C.muted} strokeWidth="0.8" opacity="0.15" />
-              <line x1="98" y1="238" x2="106" y2="310" stroke={C.muted} strokeWidth="0.8" opacity="0.15" />
-              {/* Knee joints */}
-              <circle cx="54" cy="312" r="4" fill="none" stroke={C.muted} strokeWidth="0.4" opacity="0.15" />
-              <circle cx="106" cy="312" r="4" fill="none" stroke={C.muted} strokeWidth="0.4" opacity="0.15" />
-              {/* Tibiae */}
-              <line x1="54" y1="316" x2="48" y2="382" stroke={C.muted} strokeWidth="0.6" opacity="0.12" />
-              <line x1="106" y1="316" x2="112" y2="382" stroke={C.muted} strokeWidth="0.6" opacity="0.12" />
-              {/* Fibulae */}
-              <line x1="58" y1="316" x2="52" y2="380" stroke={C.muted} strokeWidth="0.3" opacity="0.08" />
-              <line x1="102" y1="316" x2="108" y2="380" stroke={C.muted} strokeWidth="0.3" opacity="0.08" />
-
-              {/* Humeri */}
-              <line x1="36" y1="78" x2="20" y2="155" stroke={C.muted} strokeWidth="0.6" opacity="0.15" />
-              <line x1="124" y1="78" x2="140" y2="155" stroke={C.muted} strokeWidth="0.6" opacity="0.15" />
+              {/* Upper arms */}
+              <line x1="32" y1="68" x2="16" y2="148" stroke={C.accent} strokeWidth="1" opacity="0.45" />
+              <line x1="128" y1="68" x2="144" y2="148" stroke={C.accent} strokeWidth="1" opacity="0.45" />
               {/* Elbow joints */}
-              <circle cx="20" cy="156" r="3" fill="none" stroke={C.muted} strokeWidth="0.3" opacity="0.12" />
-              <circle cx="140" cy="156" r="3" fill="none" stroke={C.muted} strokeWidth="0.3" opacity="0.12" />
-              {/* Radius/Ulna */}
-              <line x1="20" y1="159" x2="14" y2="210" stroke={C.muted} strokeWidth="0.4" opacity="0.1" />
-              <line x1="22" y1="159" x2="18" y2="210" stroke={C.muted} strokeWidth="0.3" opacity="0.08" />
-              <line x1="140" y1="159" x2="146" y2="210" stroke={C.muted} strokeWidth="0.4" opacity="0.1" />
-              <line x1="138" y1="159" x2="142" y2="210" stroke={C.muted} strokeWidth="0.3" opacity="0.08" />
+              <circle cx="16" cy="148" r="3" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.4" />
+              <circle cx="144" cy="148" r="3" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.4" />
+              {/* Forearms */}
+              <line x1="16" y1="148" x2="10" y2="210" stroke={C.accent} strokeWidth="0.8" opacity="0.35" />
+              <line x1="144" y1="148" x2="150" y2="210" stroke={C.accent} strokeWidth="0.8" opacity="0.35" />
+              {/* Hands (small circles) */}
+              <circle cx="10" cy="212" r="4" fill="none" stroke={C.accent} strokeWidth="0.6" opacity="0.25" />
+              <circle cx="150" cy="212" r="4" fill="none" stroke={C.accent} strokeWidth="0.6" opacity="0.25" />
 
-              {/* ═══ MUSCULAR SYSTEM (middle layer) ═══ */}
-              {/* Pectorals — fiber direction lines */}
-              <path d="M 80 82 Q 68 80 50 88 Q 44 92 42 100" fill="none" stroke={C.accent} strokeWidth="0.4" opacity="0.2" />
-              <path d="M 80 86 Q 68 84 52 92 Q 46 96 44 104" fill="none" stroke={C.accent} strokeWidth="0.3" opacity="0.15" />
-              <path d="M 80 90 Q 70 88 56 96 Q 50 100 48 106" fill="none" stroke={C.accent} strokeWidth="0.3" opacity="0.12" />
-              <path d="M 80 82 Q 92 80 110 88 Q 116 92 118 100" fill="none" stroke={C.accent} strokeWidth="0.4" opacity="0.2" />
-              <path d="M 80 86 Q 92 84 108 92 Q 114 96 116 104" fill="none" stroke={C.accent} strokeWidth="0.3" opacity="0.15" />
-              <path d="M 80 90 Q 90 88 104 96 Q 110 100 112 106" fill="none" stroke={C.accent} strokeWidth="0.3" opacity="0.12" />
+              {/* Hip joints */}
+              <circle cx="60" cy="200" r="5" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.4" />
+              <circle cx="100" cy="200" r="5" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.4" />
 
-              {/* Deltoids */}
-              <path d="M 36 76 Q 28 82 24 96 Q 22 108 24 118" fill="none" stroke={C.accent} strokeWidth="0.5" opacity="0.25" />
-              <path d="M 38 78 Q 30 84 26 98 Q 24 108 26 116" fill="none" stroke={C.accent} strokeWidth="0.3" opacity="0.15" />
-              <path d="M 124 76 Q 132 82 136 96 Q 138 108 136 118" fill="none" stroke={C.accent} strokeWidth="0.5" opacity="0.25" />
-              <path d="M 122 78 Q 130 84 134 98 Q 136 108 134 116" fill="none" stroke={C.accent} strokeWidth="0.3" opacity="0.15" />
+              {/* Upper legs (femurs) */}
+              <line x1="60" y1="205" x2="52" y2="300" stroke={C.accent} strokeWidth="1" opacity="0.45" />
+              <line x1="100" y1="205" x2="108" y2="300" stroke={C.accent} strokeWidth="1" opacity="0.45" />
+              {/* Knee joints */}
+              <circle cx="52" cy="300" r="4" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.4" />
+              <circle cx="108" cy="300" r="4" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.4" />
+              {/* Lower legs */}
+              <line x1="52" y1="304" x2="46" y2="375" stroke={C.accent} strokeWidth="0.8" opacity="0.35" />
+              <line x1="108" y1="304" x2="114" y2="375" stroke={C.accent} strokeWidth="0.8" opacity="0.35" />
+              {/* Ankle joints */}
+              <circle cx="46" cy="375" r="3" fill="none" stroke={C.accent} strokeWidth="0.6" opacity="0.3" />
+              <circle cx="114" cy="375" r="3" fill="none" stroke={C.accent} strokeWidth="0.6" opacity="0.3" />
+              {/* Feet */}
+              <line x1="46" y1="378" x2="36" y2="388" stroke={C.accent} strokeWidth="0.6" opacity="0.25" />
+              <line x1="36" y1="388" x2="52" y2="390" stroke={C.accent} strokeWidth="0.6" opacity="0.25" />
+              <line x1="114" y1="378" x2="124" y2="388" stroke={C.accent} strokeWidth="0.6" opacity="0.25" />
+              <line x1="124" y1="388" x2="108" y2="390" stroke={C.accent} strokeWidth="0.6" opacity="0.25" />
 
-              {/* Biceps fibers */}
-              <path d="M 26 110 Q 22 130 20 150" fill="none" stroke={C.accent} strokeWidth="0.4" opacity="0.18" />
-              <path d="M 28 112 Q 24 132 22 150" fill="none" stroke={C.accent} strokeWidth="0.3" opacity="0.12" />
-              <path d="M 134 110 Q 138 130 140 150" fill="none" stroke={C.accent} strokeWidth="0.4" opacity="0.18" />
-              <path d="M 132 112 Q 136 132 138 150" fill="none" stroke={C.accent} strokeWidth="0.3" opacity="0.12" />
-
-              {/* Rectus abdominis — detailed segments */}
-              {[152, 162, 172, 182, 192, 202].map((y, i) => (
-                <g key={`abs${i}`}>
-                  <rect x="66" y={y} width="12" height="8" rx="2" fill={C.purple + "06"} stroke={C.purple} strokeWidth="0.35" opacity="0.25" />
-                  <rect x="82" y={y} width="12" height="8" rx="2" fill={C.purple + "06"} stroke={C.purple} strokeWidth="0.35" opacity="0.25" />
-                </g>
-              ))}
-              {/* Obliques */}
-              <path d="M 60 155 Q 55 170 52 190 Q 50 200 52 212" fill="none" stroke={C.purple} strokeWidth="0.3" opacity="0.15" />
-              <path d="M 58 158 Q 53 173 50 193" fill="none" stroke={C.purple} strokeWidth="0.25" opacity="0.1" />
-              <path d="M 100 155 Q 105 170 108 190 Q 110 200 108 212" fill="none" stroke={C.purple} strokeWidth="0.3" opacity="0.15" />
-              <path d="M 102 158 Q 107 173 110 193" fill="none" stroke={C.purple} strokeWidth="0.25" opacity="0.1" />
-
-              {/* Quadriceps — detailed fiber groups */}
-              {/* Vastus lateralis */}
-              <path d="M 56 240 Q 52 260 50 285 Q 48 300 50 315" fill="none" stroke={C.accent} strokeWidth="0.5" opacity="0.2" />
-              <path d="M 54 245 Q 50 265 48 288" fill="none" stroke={C.accent} strokeWidth="0.3" opacity="0.12" />
-              <path d="M 104 240 Q 108 260 110 285 Q 112 300 110 315" fill="none" stroke={C.accent} strokeWidth="0.5" opacity="0.2" />
-              {/* Rectus femoris */}
-              <path d="M 62 240 Q 58 268 56 300 Q 54 312 54 318" fill="none" stroke={C.accent} strokeWidth="0.4" opacity="0.18" />
-              <path d="M 98 240 Q 102 268 104 300 Q 106 312 106 318" fill="none" stroke={C.accent} strokeWidth="0.4" opacity="0.18" />
-              {/* Vastus medialis */}
-              <path d="M 68 245 Q 64 270 60 298 Q 58 308 56 316" fill="none" stroke={C.accent} strokeWidth="0.35" opacity="0.15" />
-              <path d="M 92 245 Q 96 270 100 298 Q 102 308 104 316" fill="none" stroke={C.accent} strokeWidth="0.35" opacity="0.15" />
-
-              {/* Gastrocnemius (calves) */}
-              <path d="M 52 318 Q 50 340 48 360 Q 46 372 46 380" fill="none" stroke={C.accent} strokeWidth="0.4" opacity="0.15" />
-              <path d="M 56 320 Q 54 342 52 362" fill="none" stroke={C.accent} strokeWidth="0.25" opacity="0.1" />
-              <path d="M 108 318 Q 110 340 112 360 Q 114 372 114 380" fill="none" stroke={C.accent} strokeWidth="0.4" opacity="0.15" />
-
-              {/* ═══ ORGAN SYSTEMS ═══ */}
-              {/* Heart — anatomical shape */}
-              <path d="M 68 100 Q 64 96 66 90 Q 68 86 72 88 Q 74 86 76 88 Q 78 86 80 90 Q 82 96 76 104 Q 72 108 68 100 Z"
-                fill={C.danger + "25"} stroke={C.danger} strokeWidth="0.8" opacity="0.8" filter="url(#organGlow)">
-              </path>
-              {/* Heart pulse ring */}
-              <circle cx="72" cy="96" r="10" fill="none" stroke={C.danger} strokeWidth="0.4" opacity="0.15">
-                <animate attributeName="r" values="10;16;10" dur="1s" repeatCount="indefinite" />
+              {/* ═══ ORGAN INDICATORS (minimal) ═══ */}
+              {/* Heart — pulsing dot */}
+              <circle cx="72" cy="95" r="4" fill={C.danger + "30"} stroke={C.danger} strokeWidth="0.8" opacity="0.8">
+                <animate attributeName="r" values="3.5;5.5;3.5" dur="1s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="72" cy="95" r="8" fill="none" stroke={C.danger} strokeWidth="0.3" opacity="0.15">
+                <animate attributeName="r" values="8;14;8" dur="1s" repeatCount="indefinite" />
                 <animate attributeName="opacity" values="0.2;0;0.2" dur="1s" repeatCount="indefinite" />
               </circle>
-              {/* Aortic arch */}
-              <path d="M 74 90 Q 78 82 86 84 Q 90 86 88 94" fill="none" stroke={C.danger} strokeWidth="0.5" opacity="0.35" />
 
-              {/* Lungs — bronchial tree */}
-              {/* Left lung outline */}
-              <path d="M 46 88 Q 40 96 38 112 Q 36 130 40 142 Q 44 148 54 146 Q 62 144 64 136 Q 66 120 64 104 Q 62 92 56 88 Z"
-                fill={C.teal + "06"} stroke={C.teal} strokeWidth="0.5" opacity="0.35" />
-              {/* Right lung outline */}
-              <path d="M 114 88 Q 120 96 122 112 Q 124 130 120 142 Q 116 148 106 146 Q 98 144 96 136 Q 94 120 96 104 Q 98 92 104 88 Z"
-                fill={C.teal + "06"} stroke={C.teal} strokeWidth="0.5" opacity="0.35" />
-              {/* Bronchi — left */}
-              <path d="M 72 88 Q 66 92 58 98" fill="none" stroke={C.teal} strokeWidth="0.4" opacity="0.3" />
-              <path d="M 58 98 Q 52 104 48 112" fill="none" stroke={C.teal} strokeWidth="0.3" opacity="0.2" />
-              <path d="M 58 98 Q 56 108 54 118" fill="none" stroke={C.teal} strokeWidth="0.3" opacity="0.2" />
-              <path d="M 54 118 Q 50 126 46 130" fill="none" stroke={C.teal} strokeWidth="0.2" opacity="0.15" />
-              <path d="M 54 118 Q 56 126 58 134" fill="none" stroke={C.teal} strokeWidth="0.2" opacity="0.15" />
-              {/* Bronchi — right */}
-              <path d="M 88 88 Q 94 92 102 98" fill="none" stroke={C.teal} strokeWidth="0.4" opacity="0.3" />
-              <path d="M 102 98 Q 108 104 112 112" fill="none" stroke={C.teal} strokeWidth="0.3" opacity="0.2" />
-              <path d="M 102 98 Q 104 108 106 118" fill="none" stroke={C.teal} strokeWidth="0.3" opacity="0.2" />
-              <path d="M 106 118 Q 110 126 114 130" fill="none" stroke={C.teal} strokeWidth="0.2" opacity="0.15" />
-              <path d="M 106 118 Q 104 126 102 134" fill="none" stroke={C.teal} strokeWidth="0.2" opacity="0.15" />
-              {/* Breathing animation on lungs */}
-              <ellipse cx="50" cy="118" rx="14" ry="22" fill="none" stroke={C.teal} strokeWidth="0.3" opacity="0.12">
-                <animate attributeName="rx" values="13;15;13" dur="3.5s" repeatCount="indefinite" />
+              {/* Lungs — breathing wireframe */}
+              <ellipse cx="64" cy="110" rx="10" ry="16" fill="none" stroke={C.teal} strokeWidth="0.6" opacity="0.35">
+                <animate attributeName="rx" values="9;11;9" dur="3.5s" repeatCount="indefinite" />
               </ellipse>
-              <ellipse cx="110" cy="118" rx="14" ry="22" fill="none" stroke={C.teal} strokeWidth="0.3" opacity="0.12">
-                <animate attributeName="rx" values="13;15;13" dur="3.5s" repeatCount="indefinite" />
+              <ellipse cx="96" cy="110" rx="10" ry="16" fill="none" stroke={C.teal} strokeWidth="0.6" opacity="0.35">
+                <animate attributeName="rx" values="9;11;9" dur="3.5s" repeatCount="indefinite" />
               </ellipse>
 
-              {/* Liver */}
-              <path d="M 90 148 Q 100 146 108 150 Q 112 154 108 162 Q 100 168 90 166 Q 86 162 88 154 Z"
-                fill="#8b4513" fillOpacity="0.08" stroke="#8b6914" strokeWidth="0.4" opacity="0.3" />
-              {/* Stomach */}
-              <path d="M 64 150 Q 58 152 56 160 Q 54 170 60 176 Q 68 178 74 174 Q 78 168 76 160 Q 74 152 68 150 Z"
-                fill={C.warn + "06"} stroke={C.warn} strokeWidth="0.35" opacity="0.25" />
-              {/* Kidneys */}
-              <ellipse cx="62" cy="170" rx="5" ry="8" fill={C.warn + "04"} stroke={C.warn} strokeWidth="0.3" opacity="0.2" />
-              <ellipse cx="98" cy="170" rx="5" ry="8" fill={C.warn + "04"} stroke={C.warn} strokeWidth="0.3" opacity="0.2" />
+              {/* Core region */}
+              <rect x="58" y="155" width="44" height="40" rx="6" fill="none" stroke={C.purple} strokeWidth="0.5" opacity="0.2" />
 
-              {/* ═══ CIRCULATORY SYSTEM ═══ */}
-              {/* Aorta descending */}
-              <path d="M 84 94 Q 82 120 80 150 Q 78 180 80 210" fill="none" stroke={C.danger} strokeWidth="0.6" opacity="0.25" strokeDasharray="2 2">
-                <animate attributeName="stroke-dashoffset" values="8;0" dur="1s" repeatCount="indefinite" />
-              </path>
-              {/* Iliac arteries */}
-              <path d="M 80 210 Q 74 220 66 238" fill="none" stroke={C.danger} strokeWidth="0.4" opacity="0.2" strokeDasharray="2 2">
-                <animate attributeName="stroke-dashoffset" values="8;0" dur="1s" repeatCount="indefinite" />
-              </path>
-              <path d="M 80 210 Q 86 220 94 238" fill="none" stroke={C.danger} strokeWidth="0.4" opacity="0.2" strokeDasharray="2 2">
-                <animate attributeName="stroke-dashoffset" values="8;0" dur="1s" repeatCount="indefinite" />
-              </path>
-              {/* Femoral arteries */}
-              <path d="M 66 238 Q 60 270 56 310" fill="none" stroke={C.danger} strokeWidth="0.35" opacity="0.15" strokeDasharray="2 3">
-                <animate attributeName="stroke-dashoffset" values="10;0" dur="1.5s" repeatCount="indefinite" />
-              </path>
-              <path d="M 94 238 Q 100 270 104 310" fill="none" stroke={C.danger} strokeWidth="0.35" opacity="0.15" strokeDasharray="2 3">
-                <animate attributeName="stroke-dashoffset" values="10;0" dur="1.5s" repeatCount="indefinite" />
-              </path>
-              {/* Subclavian arteries to arms */}
-              <path d="M 72 90 Q 56 86 36 90 Q 28 96 24 118" fill="none" stroke={C.danger} strokeWidth="0.35" opacity="0.18" strokeDasharray="2 2">
-                <animate attributeName="stroke-dashoffset" values="8;0" dur="1.2s" repeatCount="indefinite" />
-              </path>
-              <path d="M 88 90 Q 104 86 124 90 Q 132 96 136 118" fill="none" stroke={C.danger} strokeWidth="0.35" opacity="0.18" strokeDasharray="2 2">
-                <animate attributeName="stroke-dashoffset" values="8;0" dur="1.2s" repeatCount="indefinite" />
-              </path>
-              {/* Venous return (blue, slower) */}
-              <path d="M 26 120 Q 30 100 40 88 Q 52 82 68 88" fill="none" stroke="#4466cc" strokeWidth="0.3" opacity="0.12" strokeDasharray="3 3">
-                <animate attributeName="stroke-dashoffset" values="0;12" dur="2s" repeatCount="indefinite" />
-              </path>
-              <path d="M 134 120 Q 130 100 120 88 Q 108 82 92 88" fill="none" stroke="#4466cc" strokeWidth="0.3" opacity="0.12" strokeDasharray="3 3">
-                <animate attributeName="stroke-dashoffset" values="0;12" dur="2s" repeatCount="indefinite" />
-              </path>
+              {/* Brain indicator */}
+              <circle cx="80" cy="24" r="8" fill="none" stroke={C.purple} strokeWidth="0.5" opacity="0.3" />
 
-              {/* Carotid arteries to brain */}
-              <path d="M 72 88 Q 74 72 76 55 Q 76 42 74 32" fill="none" stroke={C.danger} strokeWidth="0.3" opacity="0.18" strokeDasharray="1.5 2">
-                <animate attributeName="stroke-dashoffset" values="7;0" dur="0.8s" repeatCount="indefinite" />
-              </path>
-              <path d="M 88 88 Q 86 72 84 55 Q 84 42 86 32" fill="none" stroke={C.danger} strokeWidth="0.3" opacity="0.18" strokeDasharray="1.5 2">
-                <animate attributeName="stroke-dashoffset" values="7;0" dur="0.8s" repeatCount="indefinite" />
-              </path>
+              {/* ═══ DATA CALLOUT LINES ═══ */}
+              {/* Heart → left */}
+              <line x1="68" y1="95" x2="0" y2="95" stroke={C.danger} strokeWidth="0.4" opacity="0.2" strokeDasharray="3 3">
+                <animate attributeName="stroke-dashoffset" values="12;0" dur="1.5s" repeatCount="indefinite" />
+              </line>
+              {/* Lung → left */}
+              <line x1="54" y1="110" x2="0" y2="130" stroke={C.teal} strokeWidth="0.4" opacity="0.2" strokeDasharray="3 3">
+                <animate attributeName="stroke-dashoffset" values="12;0" dur="1.5s" repeatCount="indefinite" />
+              </line>
+              {/* Brain → left */}
+              <line x1="72" y1="24" x2="0" y2="55" stroke={C.purple} strokeWidth="0.4" opacity="0.2" strokeDasharray="3 3">
+                <animate attributeName="stroke-dashoffset" values="12;0" dur="1.5s" repeatCount="indefinite" />
+              </line>
+              {/* Weight → right */}
+              <line x1="118" y1="120" x2="160" y2="95" stroke={C.accent} strokeWidth="0.4" opacity="0.2" strokeDasharray="3 3">
+                <animate attributeName="stroke-dashoffset" values="12;0" dur="2s" repeatCount="indefinite" />
+              </line>
+              {/* Core → right */}
+              <line x1="102" y1="175" x2="160" y2="175" stroke={C.purple} strokeWidth="0.4" opacity="0.15" strokeDasharray="3 3">
+                <animate attributeName="stroke-dashoffset" values="12;0" dur="2s" repeatCount="indefinite" />
+              </line>
 
-              {/* ═══ NERVOUS SYSTEM (top layer) ═══ */}
-              {/* Brain (in skull) */}
-              <path d="M 66 22 Q 64 16 68 12 Q 74 8 80 8 Q 86 8 92 12 Q 96 16 94 22 Q 92 28 88 30 Q 84 32 80 32 Q 76 32 72 30 Q 68 28 66 22 Z"
-                fill={C.purple + "08"} stroke={C.purple} strokeWidth="0.4" opacity="0.35" />
-              {/* Brain folds */}
-              <path d="M 70 16 Q 74 14 80 14 Q 86 14 90 16" fill="none" stroke={C.purple} strokeWidth="0.3" opacity="0.2" />
-              <path d="M 68 20 Q 74 18 80 18 Q 86 18 92 20" fill="none" stroke={C.purple} strokeWidth="0.25" opacity="0.15" />
-              <path d="M 70 24 Q 76 22 80 22 Q 84 22 90 24" fill="none" stroke={C.purple} strokeWidth="0.25" opacity="0.15" />
-              {/* Brain stem */}
-              <line x1="80" y1="32" x2="80" y2="55" stroke={C.purple} strokeWidth="0.6" opacity="0.25" />
+              {/* ═══ MEASUREMENT ANNOTATIONS ═══ */}
+              {/* Height dimension line */}
+              <line x1="155" y1="10" x2="155" y2="390" stroke={C.muted} strokeWidth="0.3" opacity="0.15" />
+              <line x1="152" y1="10" x2="158" y2="10" stroke={C.muted} strokeWidth="0.3" opacity="0.15" />
+              <line x1="152" y1="390" x2="158" y2="390" stroke={C.muted} strokeWidth="0.3" opacity="0.15" />
+              <text x="155" y="200" textAnchor="middle" transform="rotate(-90, 155, 200)" style={{ fontFamily: "'JetBrains Mono'", fontSize: 5, fill: C.muted, opacity: 0.3, letterSpacing: 1 }}>176 LBS · 5'10"</text>
 
-              {/* Spinal cord */}
-              <line x1="80" y1="55" x2="80" y2="230" stroke={C.purple} strokeWidth="0.8" opacity="0.2" />
-              {/* Spinal nerve pairs */}
-              {[74, 82, 90, 98, 106, 114, 122, 130, 138, 146, 154, 162, 170, 178, 186, 194, 202, 210, 218].map((y, i) => (
-                <g key={`sn${i}`} opacity="0.15">
-                  <line x1="80" y1={y} x2={80 - 14 - Math.sin(i * 0.4) * 6} y2={y + 4} stroke={C.purple} strokeWidth="0.3" />
-                  <line x1="80" y1={y} x2={80 + 14 + Math.sin(i * 0.4) * 6} y2={y + 4} stroke={C.purple} strokeWidth="0.3" />
-                </g>
-              ))}
-              {/* Sciatic nerves */}
-              <path d="M 80 228 Q 72 240 66 260 Q 60 280 56 310 Q 52 340 50 370" fill="none" stroke={C.purple} strokeWidth="0.35" opacity="0.12" />
-              <path d="M 80 228 Q 88 240 94 260 Q 100 280 104 310 Q 108 340 110 370" fill="none" stroke={C.purple} strokeWidth="0.35" opacity="0.12" />
+              {/* Horizontal reference lines */}
+              <line x1="4" y1="68" x2="156" y2="68" stroke={C.muted} strokeWidth="0.2" opacity="0.08" strokeDasharray="2 6" />
+              <line x1="4" y1="200" x2="156" y2="200" stroke={C.muted} strokeWidth="0.2" opacity="0.08" strokeDasharray="2 6" />
+              <line x1="4" y1="300" x2="156" y2="300" stroke={C.muted} strokeWidth="0.2" opacity="0.08" strokeDasharray="2 6" />
 
-              {/* Neural activity pulses along spinal cord */}
-              {[60, 80, 100, 120, 140, 160, 180, 200, 220].map((y, i) => (
-                <circle key={`np${i}`} cx="80" cy={y} r="1.5" fill={C.purple} opacity="0.2">
-                  <animate attributeName="opacity" values="0.1;0.5;0.1" dur="1.5s" begin={`${i * 0.15}s`} repeatCount="indefinite" />
-                  <animate attributeName="r" values="1;2.5;1" dur="1.5s" begin={`${i * 0.15}s`} repeatCount="indefinite" />
-                </circle>
-              ))}
-
-              {/* ═══ OUTER BODY CONTOUR ═══ */}
-              {/* Head */}
-              <ellipse cx="80" cy="30" rx="19" ry="23" fill="none" stroke={C.accent} strokeWidth="1" opacity="0.5" filter="url(#softGlow)" />
-              {/* Neck */}
-              <path d="M 72 53 L 72 70 M 88 53 L 88 70" stroke={C.accent} strokeWidth="0.7" opacity="0.35" />
-              {/* Torso */}
-              <path d="M 40 74 Q 34 78 32 100 Q 28 150 34 196 Q 40 210 52 214 L 60 214 Q 66 210 72 200 L 80 196 L 88 200 Q 94 210 100 214 L 108 214 Q 120 210 126 196 Q 132 150 128 100 Q 126 78 120 74"
-                fill="none" stroke={C.accent} strokeWidth="1" opacity="0.45" filter="url(#softGlow)" />
-              {/* Left arm */}
-              <path d="M 34 78 Q 22 88 16 125 Q 10 155 8 185 Q 6 205 12 215" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.3" />
-              {/* Right arm */}
-              <path d="M 126 78 Q 138 88 144 125 Q 150 155 152 185 Q 154 205 148 215" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.3" />
-              {/* Left leg */}
-              <path d="M 52 214 Q 48 250 46 295 Q 44 330 40 360 Q 38 380 34 395 M 60 214 Q 58 250 58 295 Q 58 330 56 360 Q 54 378 52 392" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.3" />
-              {/* Right leg */}
-              <path d="M 108 214 Q 112 250 114 295 Q 116 330 120 360 Q 122 380 126 395 M 100 214 Q 102 250 102 295 Q 102 330 104 360 Q 106 378 108 392" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.3" />
-              {/* Feet */}
-              <path d="M 34 395 Q 30 400 28 402 Q 26 404 32 406 Q 42 408 52 404 Q 54 400 52 396" fill="none" stroke={C.accent} strokeWidth="0.5" opacity="0.2" />
-              <path d="M 126 395 Q 130 400 132 402 Q 134 404 128 406 Q 118 408 108 404 Q 106 400 108 396" fill="none" stroke={C.accent} strokeWidth="0.5" opacity="0.2" />
-
-              {/* ═══ ANATOMICAL LABELS ═══ */}
-              <text x="80" y="8" textAnchor="middle" style={{ fontFamily: "'JetBrains Mono'", fontSize: 5.5, fill: C.purple, opacity: 0.5, letterSpacing: 1 }}>CEREBRAL</text>
-              <text x="72" y="114" textAnchor="end" style={{ fontFamily: "'JetBrains Mono'", fontSize: 5, fill: C.danger, opacity: 0.5 }}>CARDIAC</text>
-              <text x="42" y="120" textAnchor="middle" style={{ fontFamily: "'JetBrains Mono'", fontSize: 5, fill: C.teal, opacity: 0.45 }}>PULM</text>
-              <text x="118" y="120" textAnchor="middle" style={{ fontFamily: "'JetBrains Mono'", fontSize: 5, fill: C.teal, opacity: 0.45 }}>PULM</text>
-              <text x="80" y="196" textAnchor="middle" style={{ fontFamily: "'JetBrains Mono'", fontSize: 5, fill: C.purple, opacity: 0.4 }}>CORE</text>
-              <text x="50" y="260" textAnchor="middle" style={{ fontFamily: "'JetBrains Mono'", fontSize: 5, fill: C.accent, opacity: 0.35, letterSpacing: 0.5 }}>QUAD</text>
-              <text x="110" y="260" textAnchor="middle" style={{ fontFamily: "'JetBrains Mono'", fontSize: 5, fill: C.accent, opacity: 0.35, letterSpacing: 0.5 }}>QUAD</text>
-              <text x="50" y="350" textAnchor="middle" style={{ fontFamily: "'JetBrains Mono'", fontSize: 4.5, fill: C.accent, opacity: 0.3 }}>GASTROC</text>
-              <text x="110" y="350" textAnchor="middle" style={{ fontFamily: "'JetBrains Mono'", fontSize: 4.5, fill: C.accent, opacity: 0.3 }}>GASTROC</text>
-
-              {/* VO2 Max annotation */}
-              <text x="80" y="152" textAnchor="middle" style={{ fontFamily: "'JetBrains Mono'", fontSize: 6, fontWeight: 700, fill: C.teal, opacity: 0.5, letterSpacing: 1 }}>VO2 51</text>
-
-              {/* Joint circles */}
-              {[[36, 78], [124, 78], [20, 156], [140, 156], [62, 238], [98, 238], [54, 312], [106, 312]].map(([x, y], i) => (
-                <circle key={`jt${i}`} cx={x} cy={y} r="3" fill="none" stroke={C.accent} strokeWidth="0.4" opacity="0.2" />
-              ))}
+              {/* Section labels */}
+              <text x="3" y="66" style={{ fontFamily: "'JetBrains Mono'", fontSize: 4.5, fill: C.muted, opacity: 0.25 }}>SHOULDER</text>
+              <text x="3" y="198" style={{ fontFamily: "'JetBrains Mono'", fontSize: 4.5, fill: C.muted, opacity: 0.25 }}>HIP</text>
+              <text x="3" y="298" style={{ fontFamily: "'JetBrains Mono'", fontSize: 4.5, fill: C.muted, opacity: 0.25 }}>KNEE</text>
             </svg>
           </div>
 
