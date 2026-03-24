@@ -1826,155 +1826,194 @@ export default function ArtyAthletics() {
             </div>
           </div>
 
-          {/* CENTER — Wireframe Body Diagram */}
+          {/* CENTER — Low-Poly Mesh Wireframe Body */}
           <div style={{ display: "flex", justifyContent: "center", position: "relative" }}>
-            <svg width="160" height="400" viewBox="0 0 160 400" style={{ filter: `drop-shadow(0 0 15px ${rC}12)` }}>
-              <defs>
-                <linearGradient id="scanGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={rC} stopOpacity="0" />
-                  <stop offset="50%" stopColor={rC} stopOpacity="0.2" />
-                  <stop offset="100%" stopColor={rC} stopOpacity="0" />
-                </linearGradient>
-              </defs>
+            {(() => {
+              // Vertex definitions for low-poly mesh human body
+              const V = [
+                // Head (0-11)
+                [80,8],[70,12],[90,12],[65,22],[80,20],[95,22],[63,34],[73,32],[87,32],[97,34],[72,42],[88,42],
+                // Neck (12-13)
+                [74,50],[86,50],
+                // Shoulders & upper chest (14-21)
+                [72,60],[88,60],[60,62],[100,62],[48,66],[112,66],[36,70],[124,70],
+                // Chest (22-31)
+                [50,78],[64,76],[80,74],[92,76],[110,78],[54,90],[68,88],[80,86],[92,88],[106,90],
+                // Mid torso (32-39)
+                [52,102],[66,100],[80,98],[94,100],[108,102],[56,114],[70,112],[80,110],
+                // (40-43)
+                [90,112],[104,114],
+                // Waist (44-49)
+                [54,128],[68,126],[80,124],[92,126],[106,128],[58,142],
+                // (50-53)
+                [72,140],[80,138],[92,140],[102,142],
+                // Abdomen (54-59)
+                [56,156],[70,154],[80,152],[94,154],[104,156],[60,170],
+                // (60-63)
+                [74,168],[80,166],[96,168],[100,170],
+                // Pelvis (64-73)
+                [58,184],[72,182],[80,180],[94,182],[102,184],[56,196],[72,194],[80,192],[94,194],[104,196],
+                // Hip joints (74-75)
+                [62,204],[98,204],
+                // Left upper arm (76-81)
+                [32,76],[26,90],[22,106],[18,122],[16,138],[14,154],
+                // Left forearm (82-85)
+                [12,168],[10,182],[8,196],[6,210],
+                // Right upper arm (86-91)
+                [128,76],[134,90],[138,106],[142,122],[144,138],[146,154],
+                // Right forearm (92-95)
+                [148,168],[150,182],[152,196],[154,210],
+                // Left thigh (96-103)
+                [58,214],[66,216],[56,230],[64,228],[52,248],[62,246],[50,266],[60,264],
+                // Left knee & shin (104-111)
+                [48,282],[58,280],[48,296],[56,296],[46,314],[54,314],[44,332],[52,332],
+                // Left calf & foot (112-117)
+                [42,350],[50,350],[40,368],[48,368],[36,382],[48,386],
+                // Right thigh (118-125)
+                [102,214],[94,216],[104,230],[96,228],[108,248],[98,246],[110,266],[100,264],
+                // Right knee & shin (126-133)
+                [112,282],[102,280],[112,296],[104,296],[114,314],[106,314],[116,332],[108,332],
+                // Right calf & foot (134-139)
+                [118,350],[110,350],[120,368],[112,368],[124,382],[112,386],
+                // Left hand (140-142)
+                [4,218],[2,226],[10,224],
+                // Right hand (143-145)
+                [156,218],[158,226],[150,224],
+              ];
 
-              {/* Scan line */}
-              <rect x="20" y="190" width="120" height="10" fill="url(#scanGrad)" opacity="0.4" rx="2">
-                <animateTransform attributeName="transform" type="translate" values="0 -200; 0 200" dur="4s" repeatCount="indefinite" />
-              </rect>
+              // Triangle edges (vertex index pairs)
+              const E = [
+                // Head mesh
+                [0,1],[0,2],[1,3],[1,4],[2,4],[2,5],[3,4],[4,5],[3,6],[3,7],[4,7],[4,8],[5,8],[5,9],[6,7],[7,8],[8,9],[6,10],[7,10],[7,11],[8,11],[9,11],[10,11],
+                // Neck
+                [10,12],[11,13],[12,13],[10,14],[12,14],[11,15],[13,15],
+                // Shoulders
+                [14,15],[14,16],[15,17],[16,18],[17,19],[18,20],[19,21],[14,23],[15,25],[16,22],[17,26],[14,24],[15,24],
+                // Chest upper
+                [20,76],[21,86],[18,22],[19,26],[22,23],[23,24],[24,25],[25,26],[20,22],[21,26],
+                // Chest mid
+                [22,27],[23,28],[24,29],[25,30],[26,31],[27,28],[28,29],[29,30],[30,31],[22,32],[27,32],[27,33],[28,33],[29,34],[30,35],[31,36],[26,36],
+                // Mid torso
+                [32,33],[33,34],[34,35],[35,36],[32,37],[33,38],[34,39],[35,40],[36,41],[37,38],[38,39],[39,40],[40,41],
+                // Waist
+                [37,44],[38,45],[39,46],[40,47],[41,48],[44,45],[45,46],[46,47],[47,48],[44,49],[45,50],[46,51],[47,52],[48,53],[49,50],[50,51],[51,52],[52,53],
+                // Abdomen
+                [49,54],[50,55],[51,56],[52,57],[53,58],[54,55],[55,56],[56,57],[57,58],[54,59],[55,60],[56,61],[57,62],[58,63],[59,60],[60,61],[61,62],[62,63],
+                // Pelvis
+                [59,64],[60,65],[61,66],[62,67],[63,68],[64,65],[65,66],[66,67],[67,68],[64,69],[65,70],[66,71],[67,72],[68,73],[69,70],[70,71],[71,72],[72,73],
+                // Hip
+                [69,74],[70,74],[71,74],[71,75],[72,75],[73,75],
+                // Left arm
+                [20,76],[76,77],[22,77],[77,78],[78,79],[79,80],[80,81],[81,82],[82,83],[83,84],[84,85],
+                [76,22],[77,27],[78,32],[77,32],
+                // Left hand
+                [85,140],[85,142],[140,141],[141,142],
+                // Right arm
+                [21,86],[86,87],[26,87],[87,88],[88,89],[89,90],[90,91],[91,92],[92,93],[93,94],[94,95],
+                [86,26],[87,31],[88,36],[87,36],
+                // Right hand
+                [95,143],[95,145],[143,144],[144,145],
+                // Left thigh
+                [74,96],[74,97],[96,97],[96,98],[97,99],[98,99],[98,100],[99,101],[100,101],[100,102],[101,103],[102,103],
+                // Left knee & shin
+                [102,104],[103,105],[104,105],[104,106],[105,107],[106,107],[106,108],[107,109],[108,109],[108,110],[109,111],[110,111],
+                // Left calf & foot
+                [110,112],[111,113],[112,113],[112,114],[113,115],[114,115],[114,116],[115,117],[116,117],
+                // Right thigh
+                [75,118],[75,119],[118,119],[118,120],[119,121],[120,121],[120,122],[121,123],[122,123],[122,124],[123,125],[124,125],
+                // Right knee & shin
+                [124,126],[125,127],[126,127],[126,128],[127,129],[128,129],[128,130],[129,131],[130,131],[130,132],[131,133],[132,133],
+                // Right calf & foot
+                [132,134],[133,135],[134,135],[134,136],[135,137],[136,137],[136,138],[137,139],[138,139],
+              ];
 
-              {/* ═══ WIREFRAME BODY ═══ */}
-              {/* Head — circle */}
-              <circle cx="80" cy="28" r="18" fill="none" stroke={C.accent} strokeWidth="1.2" opacity="0.6" />
-              {/* Cross-hairs on head */}
-              <line x1="80" y1="12" x2="80" y2="44" stroke={C.accent} strokeWidth="0.3" opacity="0.15" />
-              <line x1="64" y1="28" x2="96" y2="28" stroke={C.accent} strokeWidth="0.3" opacity="0.15" />
+              // Heart position for pulse
+              const heartX = (V[28][0] + V[29][0]) / 2 - 4;
+              const heartY = (V[28][1] + V[29][1]) / 2;
 
-              {/* Neck */}
-              <line x1="74" y1="46" x2="74" y2="62" stroke={C.accent} strokeWidth="1" opacity="0.5" />
-              <line x1="86" y1="46" x2="86" y2="62" stroke={C.accent} strokeWidth="1" opacity="0.5" />
+              return (
+                <svg width="160" height="400" viewBox="0 0 160 400" style={{ filter: `drop-shadow(0 0 20px ${rC}18)` }}>
+                  <defs>
+                    <linearGradient id="scanGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={rC} stopOpacity="0" />
+                      <stop offset="50%" stopColor={rC} stopOpacity="0.15" />
+                      <stop offset="100%" stopColor={rC} stopOpacity="0" />
+                    </linearGradient>
+                    <filter id="meshGlow"><feGaussianBlur stdDeviation="1" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+                  </defs>
 
-              {/* Shoulders — horizontal bar */}
-              <line x1="32" y1="68" x2="128" y2="68" stroke={C.accent} strokeWidth="1.2" opacity="0.55" />
-              {/* Shoulder joints */}
-              <circle cx="32" cy="68" r="4" fill="none" stroke={C.accent} strokeWidth="1" opacity="0.5" />
-              <circle cx="128" cy="68" r="4" fill="none" stroke={C.accent} strokeWidth="1" opacity="0.5" />
+                  {/* Scan line */}
+                  <rect x="0" y="190" width="160" height="12" fill="url(#scanGrad)" opacity="0.5">
+                    <animateTransform attributeName="transform" type="translate" values="0 -200; 0 210" dur="4s" repeatCount="indefinite" />
+                  </rect>
 
-              {/* Torso — wireframe trapezoid */}
-              <line x1="48" y1="68" x2="42" y2="200" stroke={C.accent} strokeWidth="1" opacity="0.5" />
-              <line x1="112" y1="68" x2="118" y2="200" stroke={C.accent} strokeWidth="1" opacity="0.5" />
-              {/* Waist line */}
-              <line x1="50" y1="155" x2="110" y2="155" stroke={C.accent} strokeWidth="0.6" opacity="0.25" />
-              {/* Hip line */}
-              <line x1="42" y1="200" x2="118" y2="200" stroke={C.accent} strokeWidth="1" opacity="0.5" />
+                  {/* Mesh edges */}
+                  {E.map(([a, b], i) => (
+                    <line key={`e${i}`} x1={V[a][0]} y1={V[a][1]} x2={V[b][0]} y2={V[b][1]}
+                      stroke={C.accent} strokeWidth="0.5" opacity="0.3" />
+                  ))}
 
-              {/* Torso cross-sections (wireframe rings) */}
-              {[82, 100, 118, 136, 155, 175, 192].map((y, i) => {
-                const t = (y - 68) / (200 - 68);
-                const wL = 48 + (42 - 48) * t;
-                const wR = 112 + (118 - 112) * t;
-                return <line key={`cs${i}`} x1={wL} y1={y} x2={wR} y2={y} stroke={C.accent} strokeWidth="0.3" opacity="0.12" />;
-              })}
-              {/* Center line (spine) */}
-              <line x1="80" y1="62" x2="80" y2="200" stroke={C.accent} strokeWidth="0.5" opacity="0.2" strokeDasharray="3 4" />
+                  {/* Brighter outer contour edges for definition */}
+                  {/* Head outline */}
+                  {[[1,3],[3,6],[6,10],[10,12],[13,11],[11,9],[9,5],[5,2],[0,1],[0,2]].map(([a,b], i) => (
+                    <line key={`ho${i}`} x1={V[a][0]} y1={V[a][1]} x2={V[b][0]} y2={V[b][1]}
+                      stroke={C.accent} strokeWidth="0.8" opacity="0.55" />
+                  ))}
+                  {/* Body silhouette edges */}
+                  {[[20,76],[76,77],[77,78],[78,79],[79,80],[80,81],[81,82],[82,83],[83,84],[84,85],[85,140],[140,141],[141,142],[142,85],
+                    [21,86],[86,87],[87,88],[88,89],[89,90],[90,91],[91,92],[92,93],[93,94],[94,95],[95,143],[143,144],[144,145],[145,95],
+                    [20,18],[18,16],[16,22],[22,27],[27,32],[32,37],[37,44],[44,49],[49,54],[54,59],[59,64],[64,69],[69,74],
+                    [21,19],[19,17],[17,26],[26,31],[31,36],[36,41],[41,48],[48,53],[53,58],[58,63],[63,68],[68,73],[73,75],
+                    [74,96],[96,98],[98,100],[100,102],[102,104],[104,106],[106,108],[108,110],[110,112],[112,114],[114,116],[116,117],
+                    [75,118],[118,120],[120,122],[122,124],[124,126],[126,128],[128,130],[130,132],[132,134],[134,136],[136,138],[138,139],
+                  ].map(([a,b], i) => (
+                    <line key={`so${i}`} x1={V[a][0]} y1={V[a][1]} x2={V[b][0]} y2={V[b][1]}
+                      stroke={C.accent} strokeWidth="0.7" opacity="0.45" />
+                  ))}
 
-              {/* Upper arms */}
-              <line x1="32" y1="68" x2="16" y2="148" stroke={C.accent} strokeWidth="1" opacity="0.45" />
-              <line x1="128" y1="68" x2="144" y2="148" stroke={C.accent} strokeWidth="1" opacity="0.45" />
-              {/* Elbow joints */}
-              <circle cx="16" cy="148" r="3" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.4" />
-              <circle cx="144" cy="148" r="3" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.4" />
-              {/* Forearms */}
-              <line x1="16" y1="148" x2="10" y2="210" stroke={C.accent} strokeWidth="0.8" opacity="0.35" />
-              <line x1="144" y1="148" x2="150" y2="210" stroke={C.accent} strokeWidth="0.8" opacity="0.35" />
-              {/* Hands (small circles) */}
-              <circle cx="10" cy="212" r="4" fill="none" stroke={C.accent} strokeWidth="0.6" opacity="0.25" />
-              <circle cx="150" cy="212" r="4" fill="none" stroke={C.accent} strokeWidth="0.6" opacity="0.25" />
+                  {/* Vertices — small dots at each point */}
+                  {V.map(([x, y], i) => (
+                    <circle key={`v${i}`} cx={x} cy={y} r="1" fill={C.accent} opacity="0.45" />
+                  ))}
 
-              {/* Hip joints */}
-              <circle cx="60" cy="200" r="5" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.4" />
-              <circle cx="100" cy="200" r="5" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.4" />
+                  {/* Brighter vertices at joints */}
+                  {[0,20,21,74,75,80,81,90,91,104,105,126,127,85,95,116,117,138,139].map(i => (
+                    <circle key={`jv${i}`} cx={V[i][0]} cy={V[i][1]} r="1.5" fill={C.accent} opacity="0.7" />
+                  ))}
 
-              {/* Upper legs (femurs) */}
-              <line x1="60" y1="205" x2="52" y2="300" stroke={C.accent} strokeWidth="1" opacity="0.45" />
-              <line x1="100" y1="205" x2="108" y2="300" stroke={C.accent} strokeWidth="1" opacity="0.45" />
-              {/* Knee joints */}
-              <circle cx="52" cy="300" r="4" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.4" />
-              <circle cx="108" cy="300" r="4" fill="none" stroke={C.accent} strokeWidth="0.8" opacity="0.4" />
-              {/* Lower legs */}
-              <line x1="52" y1="304" x2="46" y2="375" stroke={C.accent} strokeWidth="0.8" opacity="0.35" />
-              <line x1="108" y1="304" x2="114" y2="375" stroke={C.accent} strokeWidth="0.8" opacity="0.35" />
-              {/* Ankle joints */}
-              <circle cx="46" cy="375" r="3" fill="none" stroke={C.accent} strokeWidth="0.6" opacity="0.3" />
-              <circle cx="114" cy="375" r="3" fill="none" stroke={C.accent} strokeWidth="0.6" opacity="0.3" />
-              {/* Feet */}
-              <line x1="46" y1="378" x2="36" y2="388" stroke={C.accent} strokeWidth="0.6" opacity="0.25" />
-              <line x1="36" y1="388" x2="52" y2="390" stroke={C.accent} strokeWidth="0.6" opacity="0.25" />
-              <line x1="114" y1="378" x2="124" y2="388" stroke={C.accent} strokeWidth="0.6" opacity="0.25" />
-              <line x1="124" y1="388" x2="108" y2="390" stroke={C.accent} strokeWidth="0.6" opacity="0.25" />
+                  {/* Heart pulse */}
+                  <circle cx={heartX} cy={heartY} r="4" fill={C.danger + "25"} stroke={C.danger} strokeWidth="0.6" opacity="0.8">
+                    <animate attributeName="r" values="3;5.5;3" dur="1s" repeatCount="indefinite" />
+                  </circle>
+                  <circle cx={heartX} cy={heartY} r="9" fill="none" stroke={C.danger} strokeWidth="0.3" opacity="0.12">
+                    <animate attributeName="r" values="8;14;8" dur="1s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="0.15;0;0.15" dur="1s" repeatCount="indefinite" />
+                  </circle>
 
-              {/* ═══ ORGAN INDICATORS (minimal) ═══ */}
-              {/* Heart — pulsing dot */}
-              <circle cx="72" cy="95" r="4" fill={C.danger + "30"} stroke={C.danger} strokeWidth="0.8" opacity="0.8">
-                <animate attributeName="r" values="3.5;5.5;3.5" dur="1s" repeatCount="indefinite" />
-              </circle>
-              <circle cx="72" cy="95" r="8" fill="none" stroke={C.danger} strokeWidth="0.3" opacity="0.15">
-                <animate attributeName="r" values="8;14;8" dur="1s" repeatCount="indefinite" />
-                <animate attributeName="opacity" values="0.2;0;0.2" dur="1s" repeatCount="indefinite" />
-              </circle>
+                  {/* Lung indicators */}
+                  <ellipse cx={V[28][0] - 8} cy={V[38][1]} rx="8" ry="12" fill="none" stroke={C.teal} strokeWidth="0.4" opacity="0.25">
+                    <animate attributeName="rx" values="7;9;7" dur="3.5s" repeatCount="indefinite" />
+                  </ellipse>
+                  <ellipse cx={V[30][0] + 8} cy={V[40][1]} rx="8" ry="12" fill="none" stroke={C.teal} strokeWidth="0.4" opacity="0.25">
+                    <animate attributeName="rx" values="7;9;7" dur="3.5s" repeatCount="indefinite" />
+                  </ellipse>
 
-              {/* Lungs — breathing wireframe */}
-              <ellipse cx="64" cy="110" rx="10" ry="16" fill="none" stroke={C.teal} strokeWidth="0.6" opacity="0.35">
-                <animate attributeName="rx" values="9;11;9" dur="3.5s" repeatCount="indefinite" />
-              </ellipse>
-              <ellipse cx="96" cy="110" rx="10" ry="16" fill="none" stroke={C.teal} strokeWidth="0.6" opacity="0.35">
-                <animate attributeName="rx" values="9;11;9" dur="3.5s" repeatCount="indefinite" />
-              </ellipse>
-
-              {/* Core region */}
-              <rect x="58" y="155" width="44" height="40" rx="6" fill="none" stroke={C.purple} strokeWidth="0.5" opacity="0.2" />
-
-              {/* Brain indicator */}
-              <circle cx="80" cy="24" r="8" fill="none" stroke={C.purple} strokeWidth="0.5" opacity="0.3" />
-
-              {/* ═══ DATA CALLOUT LINES ═══ */}
-              {/* Heart → left */}
-              <line x1="68" y1="95" x2="0" y2="95" stroke={C.danger} strokeWidth="0.4" opacity="0.2" strokeDasharray="3 3">
-                <animate attributeName="stroke-dashoffset" values="12;0" dur="1.5s" repeatCount="indefinite" />
-              </line>
-              {/* Lung → left */}
-              <line x1="54" y1="110" x2="0" y2="130" stroke={C.teal} strokeWidth="0.4" opacity="0.2" strokeDasharray="3 3">
-                <animate attributeName="stroke-dashoffset" values="12;0" dur="1.5s" repeatCount="indefinite" />
-              </line>
-              {/* Brain → left */}
-              <line x1="72" y1="24" x2="0" y2="55" stroke={C.purple} strokeWidth="0.4" opacity="0.2" strokeDasharray="3 3">
-                <animate attributeName="stroke-dashoffset" values="12;0" dur="1.5s" repeatCount="indefinite" />
-              </line>
-              {/* Weight → right */}
-              <line x1="118" y1="120" x2="160" y2="95" stroke={C.accent} strokeWidth="0.4" opacity="0.2" strokeDasharray="3 3">
-                <animate attributeName="stroke-dashoffset" values="12;0" dur="2s" repeatCount="indefinite" />
-              </line>
-              {/* Core → right */}
-              <line x1="102" y1="175" x2="160" y2="175" stroke={C.purple} strokeWidth="0.4" opacity="0.15" strokeDasharray="3 3">
-                <animate attributeName="stroke-dashoffset" values="12;0" dur="2s" repeatCount="indefinite" />
-              </line>
-
-              {/* ═══ MEASUREMENT ANNOTATIONS ═══ */}
-              {/* Height dimension line */}
-              <line x1="155" y1="10" x2="155" y2="390" stroke={C.muted} strokeWidth="0.3" opacity="0.15" />
-              <line x1="152" y1="10" x2="158" y2="10" stroke={C.muted} strokeWidth="0.3" opacity="0.15" />
-              <line x1="152" y1="390" x2="158" y2="390" stroke={C.muted} strokeWidth="0.3" opacity="0.15" />
-              <text x="155" y="200" textAnchor="middle" transform="rotate(-90, 155, 200)" style={{ fontFamily: "'JetBrains Mono'", fontSize: 5, fill: C.muted, opacity: 0.3, letterSpacing: 1 }}>176 LBS · 5'10"</text>
-
-              {/* Horizontal reference lines */}
-              <line x1="4" y1="68" x2="156" y2="68" stroke={C.muted} strokeWidth="0.2" opacity="0.08" strokeDasharray="2 6" />
-              <line x1="4" y1="200" x2="156" y2="200" stroke={C.muted} strokeWidth="0.2" opacity="0.08" strokeDasharray="2 6" />
-              <line x1="4" y1="300" x2="156" y2="300" stroke={C.muted} strokeWidth="0.2" opacity="0.08" strokeDasharray="2 6" />
-
-              {/* Section labels */}
-              <text x="3" y="66" style={{ fontFamily: "'JetBrains Mono'", fontSize: 4.5, fill: C.muted, opacity: 0.25 }}>SHOULDER</text>
-              <text x="3" y="198" style={{ fontFamily: "'JetBrains Mono'", fontSize: 4.5, fill: C.muted, opacity: 0.25 }}>HIP</text>
-              <text x="3" y="298" style={{ fontFamily: "'JetBrains Mono'", fontSize: 4.5, fill: C.muted, opacity: 0.25 }}>KNEE</text>
-            </svg>
+                  {/* Data callout lines */}
+                  <line x1={heartX - 4} y1={heartY} x2="0" y2={heartY} stroke={C.danger} strokeWidth="0.35" opacity="0.18" strokeDasharray="3 3">
+                    <animate attributeName="stroke-dashoffset" values="12;0" dur="1.5s" repeatCount="indefinite" />
+                  </line>
+                  <line x1={V[28][0] - 16} y1={V[38][1]} x2="0" y2={V[38][1] + 20} stroke={C.teal} strokeWidth="0.35" opacity="0.18" strokeDasharray="3 3">
+                    <animate attributeName="stroke-dashoffset" values="12;0" dur="1.5s" repeatCount="indefinite" />
+                  </line>
+                  <line x1={V[0][0]} y1={V[0][1]} x2="0" y2={V[0][1] + 30} stroke={C.purple} strokeWidth="0.35" opacity="0.18" strokeDasharray="3 3">
+                    <animate attributeName="stroke-dashoffset" values="12;0" dur="1.5s" repeatCount="indefinite" />
+                  </line>
+                  <line x1={V[19][0]} y1={V[19][1] + 20} x2="160" y2={V[19][1] + 20} stroke={C.accent} strokeWidth="0.35" opacity="0.15" strokeDasharray="3 3">
+                    <animate attributeName="stroke-dashoffset" values="12;0" dur="2s" repeatCount="indefinite" />
+                  </line>
+                </svg>
+              );
+            })()}
           </div>
 
           {/* RIGHT STATS */}
